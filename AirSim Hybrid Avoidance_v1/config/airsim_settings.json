@@ -1,0 +1,121 @@
+{
+  "SeeDocsAt": "https://microsoft.github.io/AirSim/settings/",
+  "SettingsVersion": 1.2,
+  "SimMode": "Multirotor",
+  "ClockSpeed": 1.0,
+  "Vehicles": {
+    "Drone1": {
+      "VehicleType": "SimpleFlight",
+      "AutoCreate": true,
+      "EnableCollisions": true,
+      "AllowAPIAlways": true,
+      "RC": {
+        "RemoteControlID": -1
+      },
+      "Sensors": {
+        "Lidar": {
+          "SensorType": 6,
+          "Enabled": true,
+          "NumberOfChannels": 16,
+          "PointsPerSecond": 100000,
+          "RotationFrequency": 10,
+          "Range": 30.0,
+          "HorizontalFOVStart": -90,
+          "HorizontalFOVEnd": 90,
+          "VerticalFOVUpper": 15,
+          "VerticalFOVLower": -15,
+          "X": 0,
+          "Y": 0,
+          "Z": 0,
+          "Roll": 0,
+          "Pitch": 0,
+          "Yaw": 0,
+          "ExternalAudio": false,
+          "DrawDebugPoints": false,
+          "DataFrame": "SensorLocalFrame"
+        },
+        "DepthCamera": {
+          "SensorType": 1,
+          "Enabled": true,
+          "ImageType": 3,
+          "PixelsAsFloat": true,
+          "CaptureSettings": [
+            {
+              "Width": 256,
+              "Height": 144,
+              "FOV_Degrees": 90,
+              "AutoExposureSpeed": 100,
+              "AutoExposureBias": 0,
+              "AutoExposureMaxBrightness": 0.64,
+              "AutoExposureMinBrightness": 0.03,
+              "MotionBlurAmount": 0,
+              "TargetGamma": 1.0,
+              "ProjectionMode": "",
+              "DistortionEnabled": false,
+              "ChromaticAberrationEnabled": false,
+              "ImageType": 3
+            }
+          ],
+          "X": 0,
+          "Y": 0,
+          "Z": 0,
+          "Roll": 0,
+          "Pitch": 0,
+          "Yaw": 0
+        }
+      },
+      "Cameras": {
+        "front_center": {
+          "CaptureSettings": [
+            {
+              "PixelsAsFloat": false,
+              "ImageType": 0,
+              "Width": 960,
+              "Height": 540,
+              "FOV_Degrees": 90
+            }
+          ],
+          "X": 0,
+          "Y": 0,
+          "Z": 0,
+          "Pitch": 0,
+          "Roll": 0,
+          "Yaw": 0
+        }
+      },
+      "Parameters": {
+        "SimpleFlight": {
+          "MaxRollRate": 30.0,
+          "MaxPitchRate": 30.0,
+          "MaxYawRate": 30.0,
+          "MaxThrottle": 1.0,
+          "AngleMax": 30.0,
+          "PidIntegralMax": 1.0,
+          "P PR": 4.0,
+          "I PR": 0.5,
+          "D PR": 0.1,
+          "P Yaw": 4.0,
+          "I Yaw": 0.5,
+          "D Yaw": 0.1,
+          "P Z": 4.0,
+          "I Z": 0.5,
+          "D Z": 0.1
+        }
+      }
+    }
+  },
+  "SubWindows": {
+    "Lidar": {
+      "WindowID": 0,
+      "CameraID": "front_center",
+      "Visible": true
+    }
+  },
+  "Recording": {
+    "RecordOnMove": false,
+    "RecordInterval": 0.05,
+    "Cameras": [
+      "front_center"
+    ]
+  }
+}
