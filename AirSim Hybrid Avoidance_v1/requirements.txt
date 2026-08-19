@@ -8,3 +8,8 @@ tqdm>=4.62
 pandas>=1.3
 scipy>=1.7
 opencv-python>=4.5
+
+# Project AirSim (UE 5.7) client requirements
+msgpack>=1.0
+pynng>=0.7
+commentjson>=0.9

@@ -12,11 +12,13 @@ import yaml
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from hybrid_controller.supervisor import Supervisor
+from airsim_interface.projectairsim_client import load_scene
 
 
 def run_single_flight(goal_x: float = 10.0, goal_y: float = 10.0,
                       config_path: str = "config/default.yaml",
-                      max_steps: int = 1000) -> dict:
+                      max_steps: int = 1000,
+                      reload_scene: bool = True) -> dict:
     """
     执行一次单次避障飞行
 
@@ -36,6 +38,10 @@ def run_single_flight(goal_x: float = 10.0, goal_y: float = 10.0,
     print("=" * 50)
 
     # 初始化 Supervisor
+    if reload_scene:
+        r = load_scene()
+        print("[run_flight] LoadScene:", r)
+
     supervisor = Supervisor(config_path)
     supervisor.set_goal(goal_x, goal_y)
 
@@ -66,6 +72,9 @@ if __name__ == "__main__":
     parser.add_argument("--config", type=str, default="config/default.yaml",
                         help="配置文件路径")
     parser.add_argument("--max_steps", type=int, default=1000, help="最大步数")
+    parser.add_argument("--no-reload", action="store_true",
+                        help="skip LoadScene before flight")
     args = parser.parse_args()
 
-    run_single_flight(args.goal_x, args.goal_y, args.config, args.max_steps)
+    run_single_flight(args.goal_x, args.goal_y, args.config, args.max_steps,
+                      reload_scene=not args.no_reload)

@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 test_drone.py — Project AirSim 无人机测试（UE 5.7）
 用法: python test_drone.py
@@ -31,7 +31,7 @@ def rpc(method, params=None):
         req = {"method": method, "params": {"data": inner}, "version": 1.0, "id": 1}
         req = {k: v.encode() if isinstance(v, str) else v for k, v in req.items()}
         sock.send(msgpack.packb(req, use_bin_type=True))
-        sock.recv_timeout = 15000
+        sock.recv_timeout = 60000
         resp = sock.recv()
         data = msgpack.unpackb(resp)
         if "error" in data:
@@ -66,6 +66,22 @@ def main():
         print("[FAIL] UE not running (port %d)" % PORT_SVC)
         sys.exit(1)
     print("[OK] UE connected")
+
+    # 时钟自检：MoveByVelocity 是同步命令（响应时间约等于 duration 模拟秒）。
+    # 若 UE PIE 启动初期 / 窗口失焦时模拟时钟变慢，3 秒命令可能耗时 >15 秒。
+    # 这里先确认模拟时钟在推进，避免“无人机不动”的误判。
+    r1 = rpc("/Sim/" + SCENE_ID + "/GetSimTime")
+    time.sleep(2)
+    r2 = rpc("/Sim/" + SCENE_ID + "/GetSimTime")
+    if "result" in r1 and "result" in r2:
+        dt = r2["result"] - r1["result"]
+        if dt > 0:
+            print("[OK] Sim time advancing (+%.2f s / 2 s real)" % (dt / 1e9))
+        else:
+            print("[WARN] Sim time NOT advancing: %s -> %s" % (r1["result"], r2["result"]))
+            print("  Drone will not move. Check UE window focused / PIE not paused / not in breakpoint.")
+    else:
+        print("[WARN] GetSimTime failed: %s" % r1)
 
     r = rpc("/Sim/GetBuildCommitHash")
     print("[OK] Sim version: %s" % r.get("result", "?")[:20])

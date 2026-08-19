@@ -263,7 +263,7 @@ class DDPGTrainer:
 
     def load_model(self, path: str):
         """加载模型"""
-        checkpoint = torch.load(path, map_location=self.device)
+        checkpoint = torch.load(path, map_location=self.device, weights_only=False)
         self.actor.load_state_dict(checkpoint['actor_state_dict'])
         self.critic.load_state_dict(checkpoint['critic_state_dict'])
         self.actor_target.load_state_dict(self.actor.state_dict())

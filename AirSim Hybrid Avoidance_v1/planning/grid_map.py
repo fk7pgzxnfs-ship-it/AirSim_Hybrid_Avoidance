@@ -56,9 +56,11 @@ class GridMap:
             self.add_obstacle(obs[0], obs[1], obs[2])
 
     def world_to_grid(self, x: float, y: float) -> tuple:
-        """世界坐标 -> 栅格坐标"""
+        """???? -> ???????????????"""
         j = int((x - self.x_min) / self.resolution)
         i = int((y - self.y_min) / self.resolution)
+        j = min(max(j, 0), self.width - 1)
+        i = min(max(i, 0), self.height - 1)
         return (j, i)
 
     def grid_to_world(self, j: int, i: int) -> tuple:
@@ -89,10 +91,14 @@ class GridMap:
         Args:
             inflation_radius: 膨胀半径 (m)
         """
+        iters = int(inflation_radius / self.resolution)
+        if iters < 1:
+            # scipy iterations=0 ????????????????
+            return
         from scipy.ndimage import binary_dilation
         struct = np.ones((3, 3), dtype=bool)
         inflated = binary_dilation(self.grid == 1, structure=struct,
-                                   iterations=int(inflation_radius / self.resolution))
+                                   iterations=iters)
         self.grid[inflated] = 1
 
     def get_free_space(self) -> np.ndarray:

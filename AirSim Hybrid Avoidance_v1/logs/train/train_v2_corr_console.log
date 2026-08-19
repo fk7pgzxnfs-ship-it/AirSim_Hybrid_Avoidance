@@ -1,0 +1,230 @@
+=======================================================
+AirSim Hybrid Avoidance v2 - DRL(DDPG) ??
+=======================================================
+[Trainer] 使用设备: cpu
+[Trainer] 开始训练，共 1500 个 episode
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Episode 10/1500] Reward: -606.8 (Avg: -596.3) Steps: 400 (Avg: 400.0) Noise: 0.297
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Episode 20/1500] Reward: -467.1 (Avg: -469.7) Steps: 400 (Avg: 400.0) Noise: 0.294
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Episode 30/1500] Reward: -469.3 (Avg: -464.3) Steps: 400 (Avg: 400.0) Noise: 0.291
+[Episode 40/1500] Reward: -463.5 (Avg: -463.9) Steps: 400 (Avg: 400.0) Noise: 0.288
+[Episode 50/1500] Reward: -468.4 (Avg: -464.7) Steps: 400 (Avg: 400.0) Noise: 0.285
+[Episode 60/1500] Reward: -463.1 (Avg: -464.8) Steps: 400 (Avg: 400.0) Noise: 0.283
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Episode 70/1500] Reward: -295.8 (Avg: -391.3) Steps: 400 (Avg: 365.5) Noise: 0.280
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Episode 80/1500] Reward: 70.1 (Avg: -161.9) Steps: 400 (Avg: 343.1) Noise: 0.277
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Episode 90/1500] Reward: 11.5 (Avg: 42.9) Steps: 400 (Avg: 400.0) Noise: 0.274
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Episode 100/1500] Reward: 86.1 (Avg: -14.7) Steps: 400 (Avg: 382.5) Noise: 0.271
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Episode 110/1500] Reward: 68.1 (Avg: 61.9) Steps: 400 (Avg: 400.0) Noise: 0.269
+[Episode 120/1500] Reward: -449.7 (Avg: 7.9) Steps: 400 (Avg: 400.0) Noise: 0.266
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Episode 130/1500] Reward: 110.5 (Avg: 49.4) Steps: 400 (Avg: 400.0) Noise: 0.263
+[Episode 140/1500] Reward: 104.6 (Avg: 80.2) Steps: 400 (Avg: 400.0) Noise: 0.261
+[Episode 150/1500] Reward: 70.9 (Avg: 74.3) Steps: 400 (Avg: 400.0) Noise: 0.258
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Episode 160/1500] Reward: 110.0 (Avg: 76.6) Steps: 400 (Avg: 400.0) Noise: 0.256
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Episode 170/1500] Reward: 86.9 (Avg: 95.6) Steps: 400 (Avg: 400.0) Noise: 0.253
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Episode 180/1500] Reward: 118.9 (Avg: 14.4) Steps: 400 (Avg: 400.0) Noise: 0.251
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Episode 190/1500] Reward: 98.6 (Avg: 89.3) Steps: 400 (Avg: 400.0) Noise: 0.248
+[Trainer] 模型保存至: models/drl_agent\ddpg_episode_200.pth
+[Episode 200/1500] Reward: 99.8 (Avg: 103.5) Steps: 400 (Avg: 400.0) Noise: 0.246
+[Episode 210/1500] Reward: 97.7 (Avg: 97.9) Steps: 400 (Avg: 400.0) Noise: 0.243
+[Episode 220/1500] Reward: 95.5 (Avg: 105.8) Steps: 400 (Avg: 400.0) Noise: 0.241
+[Episode 230/1500] Reward: 110.9 (Avg: 110.5) Steps: 400 (Avg: 400.0) Noise: 0.238
+[Episode 240/1500] Reward: 106.2 (Avg: 86.7) Steps: 400 (Avg: 348.4) Noise: 0.236
+[Episode 250/1500] Reward: 105.6 (Avg: 89.3) Steps: 400 (Avg: 400.0) Noise: 0.234
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Episode 260/1500] Reward: 85.4 (Avg: 95.4) Steps: 400 (Avg: 400.0) Noise: 0.231
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Episode 270/1500] Reward: 106.9 (Avg: 110.2) Steps: 400 (Avg: 400.0) Noise: 0.229
+[Episode 280/1500] Reward: 119.2 (Avg: 111.4) Steps: 400 (Avg: 400.0) Noise: 0.227
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Episode 290/1500] Reward: 102.3 (Avg: 112.8) Steps: 400 (Avg: 400.0) Noise: 0.224
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Episode 300/1500] Reward: 108.5 (Avg: 110.9) Steps: 400 (Avg: 400.0) Noise: 0.222
+[Episode 310/1500] Reward: 108.0 (Avg: 111.1) Steps: 400 (Avg: 400.0) Noise: 0.220
+[Episode 320/1500] Reward: 117.1 (Avg: 112.9) Steps: 400 (Avg: 400.0) Noise: 0.218
+[Episode 330/1500] Reward: 109.5 (Avg: 109.5) Steps: 400 (Avg: 400.0) Noise: 0.216
+[Episode 340/1500] Reward: 114.9 (Avg: 111.2) Steps: 400 (Avg: 400.0) Noise: 0.213
+[Episode 350/1500] Reward: 99.6 (Avg: 105.1) Steps: 400 (Avg: 400.0) Noise: 0.211
+[Episode 360/1500] Reward: 103.5 (Avg: 107.8) Steps: 400 (Avg: 400.0) Noise: 0.209
+[Episode 370/1500] Reward: 99.9 (Avg: 106.3) Steps: 400 (Avg: 400.0) Noise: 0.207
+[Episode 380/1500] Reward: 99.8 (Avg: 106.7) Steps: 400 (Avg: 400.0) Noise: 0.205
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Episode 390/1500] Reward: 121.5 (Avg: 116.4) Steps: 400 (Avg: 400.0) Noise: 0.203
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Trainer] 模型保存至: models/drl_agent\ddpg_episode_400.pth
+[Episode 400/1500] Reward: 125.2 (Avg: 115.4) Steps: 400 (Avg: 400.0) Noise: 0.201
+[Episode 410/1500] Reward: 123.0 (Avg: 115.1) Steps: 400 (Avg: 400.0) Noise: 0.199
+[Episode 420/1500] Reward: 122.4 (Avg: 113.3) Steps: 400 (Avg: 400.0) Noise: 0.197
+[Episode 430/1500] Reward: 120.2 (Avg: 114.0) Steps: 400 (Avg: 400.0) Noise: 0.195
+[Episode 440/1500] Reward: 123.4 (Avg: 111.7) Steps: 400 (Avg: 400.0) Noise: 0.193
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Episode 450/1500] Reward: 125.8 (Avg: 119.3) Steps: 400 (Avg: 400.0) Noise: 0.191
+[Episode 460/1500] Reward: 123.4 (Avg: 119.5) Steps: 400 (Avg: 400.0) Noise: 0.189
+[Episode 470/1500] Reward: 119.3 (Avg: 118.1) Steps: 400 (Avg: 400.0) Noise: 0.187
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Episode 480/1500] Reward: 115.3 (Avg: 119.2) Steps: 400 (Avg: 400.0) Noise: 0.186
+[Episode 490/1500] Reward: 114.4 (Avg: 111.0) Steps: 400 (Avg: 400.0) Noise: 0.184
+[Episode 500/1500] Reward: 112.3 (Avg: 107.7) Steps: 400 (Avg: 400.0) Noise: 0.182
+[Episode 510/1500] Reward: 108.3 (Avg: 106.8) Steps: 400 (Avg: 400.0) Noise: 0.180
+[Episode 520/1500] Reward: 109.0 (Avg: 106.9) Steps: 400 (Avg: 400.0) Noise: 0.178
+[Episode 530/1500] Reward: 103.9 (Avg: 103.5) Steps: 400 (Avg: 400.0) Noise: 0.177
+[Episode 540/1500] Reward: 105.4 (Avg: 106.7) Steps: 400 (Avg: 400.0) Noise: 0.175
+[Episode 550/1500] Reward: 105.9 (Avg: 110.4) Steps: 400 (Avg: 400.0) Noise: 0.173
+[Episode 560/1500] Reward: 111.9 (Avg: 104.9) Steps: 400 (Avg: 400.0) Noise: 0.171
+[Episode 570/1500] Reward: 110.6 (Avg: 98.2) Steps: 400 (Avg: 400.0) Noise: 0.170
+[Episode 580/1500] Reward: 103.9 (Avg: 103.4) Steps: 400 (Avg: 400.0) Noise: 0.168
+[Episode 590/1500] Reward: 66.8 (Avg: 72.8) Steps: 400 (Avg: 400.0) Noise: 0.166
+[Trainer] 模型保存至: models/drl_agent\ddpg_episode_600.pth
+[Episode 600/1500] Reward: 108.8 (Avg: 106.4) Steps: 400 (Avg: 400.0) Noise: 0.165
+[Episode 610/1500] Reward: 71.8 (Avg: 106.0) Steps: 400 (Avg: 400.0) Noise: 0.163
+[Episode 620/1500] Reward: 59.5 (Avg: 64.1) Steps: 400 (Avg: 400.0) Noise: 0.161
+[Episode 630/1500] Reward: 67.4 (Avg: 78.1) Steps: 400 (Avg: 400.0) Noise: 0.160
+[Episode 640/1500] Reward: 101.4 (Avg: 111.7) Steps: 400 (Avg: 400.0) Noise: 0.158
+[Episode 650/1500] Reward: 114.1 (Avg: 109.2) Steps: 400 (Avg: 400.0) Noise: 0.157
+[Episode 660/1500] Reward: 112.1 (Avg: 111.0) Steps: 400 (Avg: 400.0) Noise: 0.155
+[Episode 670/1500] Reward: 102.1 (Avg: 108.7) Steps: 400 (Avg: 400.0) Noise: 0.153
+[Episode 680/1500] Reward: 109.4 (Avg: 109.0) Steps: 400 (Avg: 400.0) Noise: 0.152
+[Episode 690/1500] Reward: 112.8 (Avg: 109.8) Steps: 400 (Avg: 400.0) Noise: 0.150
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Episode 700/1500] Reward: 250.3 (Avg: 149.0) Steps: 173 (Avg: 331.8) Noise: 0.149
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Episode 710/1500] Reward: 259.1 (Avg: 241.7) Steps: 174 (Avg: 211.0) Noise: 0.147
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Episode 720/1500] Reward: 259.3 (Avg: 255.9) Steps: 172 (Avg: 172.8) Noise: 0.146
+[Episode 730/1500] Reward: 255.2 (Avg: 256.1) Steps: 172 (Avg: 172.6) Noise: 0.145
+[Episode 740/1500] Reward: 248.2 (Avg: 254.4) Steps: 172 (Avg: 172.8) Noise: 0.143
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Episode 750/1500] Reward: 259.1 (Avg: 256.7) Steps: 173 (Avg: 172.3) Noise: 0.142
+[Episode 760/1500] Reward: 259.1 (Avg: 253.7) Steps: 172 (Avg: 172.7) Noise: 0.140
+[Episode 770/1500] Reward: 250.0 (Avg: 247.9) Steps: 173 (Avg: 172.4) Noise: 0.139
+[Episode 780/1500] Reward: 259.2 (Avg: 255.8) Steps: 172 (Avg: 172.6) Noise: 0.137
+[Episode 790/1500] Reward: 250.5 (Avg: 253.4) Steps: 172 (Avg: 173.2) Noise: 0.136
+[Trainer] 模型保存至: models/drl_agent\ddpg_episode_800.pth
+[Episode 800/1500] Reward: 259.1 (Avg: 258.8) Steps: 172 (Avg: 174.8) Noise: 0.135
+[Episode 810/1500] Reward: 224.9 (Avg: 249.3) Steps: 173 (Avg: 172.0) Noise: 0.133
+[Episode 820/1500] Reward: 258.5 (Avg: 245.7) Steps: 172 (Avg: 174.0) Noise: 0.132
+[Episode 830/1500] Reward: 239.4 (Avg: 239.7) Steps: 172 (Avg: 172.1) Noise: 0.131
+[Episode 840/1500] Reward: 224.4 (Avg: 247.9) Steps: 172 (Avg: 172.1) Noise: 0.129
+[Episode 850/1500] Reward: 254.9 (Avg: 244.7) Steps: 172 (Avg: 171.9) Noise: 0.128
+[Episode 860/1500] Reward: 246.9 (Avg: 248.9) Steps: 172 (Avg: 171.6) Noise: 0.127
+[Episode 870/1500] Reward: 247.4 (Avg: 242.6) Steps: 172 (Avg: 195.0) Noise: 0.126
+[Episode 880/1500] Reward: 234.2 (Avg: 237.3) Steps: 171 (Avg: 195.6) Noise: 0.124
+[Episode 890/1500] Reward: 255.6 (Avg: 254.3) Steps: 172 (Avg: 171.5) Noise: 0.123
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Episode 900/1500] Reward: 252.6 (Avg: 252.6) Steps: 171 (Avg: 171.6) Noise: 0.122
+[Episode 910/1500] Reward: 242.5 (Avg: 247.7) Steps: 172 (Avg: 171.4) Noise: 0.121
+[Episode 920/1500] Reward: 259.5 (Avg: 255.4) Steps: 171 (Avg: 171.2) Noise: 0.120
+[Episode 930/1500] Reward: 258.8 (Avg: 252.4) Steps: 171 (Avg: 171.3) Noise: 0.118
+[Episode 940/1500] Reward: 251.7 (Avg: 245.6) Steps: 171 (Avg: 171.1) Noise: 0.117
+[Episode 950/1500] Reward: 258.7 (Avg: 231.2) Steps: 171 (Avg: 171.3) Noise: 0.116
+[Episode 960/1500] Reward: 223.5 (Avg: 228.8) Steps: 171 (Avg: 171.4) Noise: 0.115
+[Episode 970/1500] Reward: 232.0 (Avg: 232.1) Steps: 171 (Avg: 171.1) Noise: 0.114
+[Episode 980/1500] Reward: 251.5 (Avg: 138.8) Steps: 172 (Avg: 285.7) Noise: 0.113
+[Episode 990/1500] Reward: 258.8 (Avg: 250.4) Steps: 172 (Avg: 171.1) Noise: 0.111
+[Trainer] 模型保存至: models/drl_agent\ddpg_episode_1000.pth
+[Episode 1000/1500] Reward: 242.9 (Avg: 247.9) Steps: 171 (Avg: 171.3) Noise: 0.110
+[Episode 1010/1500] Reward: 259.0 (Avg: 253.2) Steps: 171 (Avg: 171.1) Noise: 0.109
+[Episode 1020/1500] Reward: 238.3 (Avg: 252.0) Steps: 171 (Avg: 170.9) Noise: 0.108
+[Episode 1030/1500] Reward: 245.9 (Avg: 255.7) Steps: 171 (Avg: 171.1) Noise: 0.107
+[Episode 1040/1500] Reward: 241.2 (Avg: 254.5) Steps: 171 (Avg: 170.6) Noise: 0.106
+[Episode 1050/1500] Reward: 259.1 (Avg: 249.0) Steps: 171 (Avg: 170.9) Noise: 0.105
+[Episode 1060/1500] Reward: 230.6 (Avg: 250.4) Steps: 170 (Avg: 171.1) Noise: 0.104
+[Episode 1070/1500] Reward: 245.6 (Avg: 251.7) Steps: 171 (Avg: 170.6) Noise: 0.103
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Episode 1080/1500] Reward: 259.7 (Avg: 255.0) Steps: 171 (Avg: 171.0) Noise: 0.102
+[Episode 1090/1500] Reward: 256.0 (Avg: 255.9) Steps: 171 (Avg: 170.8) Noise: 0.101
+[Episode 1100/1500] Reward: 254.9 (Avg: 254.9) Steps: 171 (Avg: 171.0) Noise: 0.100
+[Episode 1110/1500] Reward: 259.4 (Avg: 256.5) Steps: 171 (Avg: 170.3) Noise: 0.099
+[Episode 1120/1500] Reward: 258.9 (Avg: 257.8) Steps: 170 (Avg: 170.3) Noise: 0.098
+[Episode 1130/1500] Reward: 244.6 (Avg: 256.2) Steps: 171 (Avg: 170.7) Noise: 0.097
+[Episode 1140/1500] Reward: 259.5 (Avg: 255.4) Steps: 171 (Avg: 170.4) Noise: 0.096
+[Episode 1150/1500] Reward: 245.2 (Avg: 254.0) Steps: 170 (Avg: 170.1) Noise: 0.095
+[Episode 1160/1500] Reward: 258.9 (Avg: 257.8) Steps: 170 (Avg: 170.3) Noise: 0.094
+[Episode 1170/1500] Reward: 251.1 (Avg: 254.6) Steps: 171 (Avg: 170.4) Noise: 0.093
+[Episode 1180/1500] Reward: 243.4 (Avg: 256.2) Steps: 170 (Avg: 170.5) Noise: 0.092
+[Episode 1190/1500] Reward: 254.6 (Avg: 256.2) Steps: 170 (Avg: 170.6) Noise: 0.091
+[Trainer] 模型保存至: models/drl_agent\ddpg_episode_1200.pth
+[Episode 1200/1500] Reward: 259.3 (Avg: 258.3) Steps: 170 (Avg: 170.4) Noise: 0.090
+[Episode 1210/1500] Reward: 247.5 (Avg: 254.5) Steps: 171 (Avg: 170.4) Noise: 0.089
+[Episode 1220/1500] Reward: 259.1 (Avg: 257.6) Steps: 170 (Avg: 170.3) Noise: 0.089
+[Episode 1230/1500] Reward: 255.1 (Avg: 256.6) Steps: 171 (Avg: 170.2) Noise: 0.088
+[Episode 1240/1500] Reward: 259.3 (Avg: 254.3) Steps: 170 (Avg: 170.0) Noise: 0.087
+[Episode 1250/1500] Reward: 259.5 (Avg: 251.6) Steps: 170 (Avg: 170.4) Noise: 0.086
+[Episode 1260/1500] Reward: 259.2 (Avg: 256.9) Steps: 170 (Avg: 170.3) Noise: 0.085
+[Episode 1270/1500] Reward: 259.2 (Avg: 256.2) Steps: 170 (Avg: 170.0) Noise: 0.084
+[Episode 1280/1500] Reward: 259.6 (Avg: 254.5) Steps: 170 (Avg: 170.1) Noise: 0.083
+[Episode 1290/1500] Reward: 258.9 (Avg: 253.5) Steps: 170 (Avg: 170.2) Noise: 0.083
+[Episode 1300/1500] Reward: 253.7 (Avg: 252.5) Steps: 170 (Avg: 170.0) Noise: 0.082
+[Episode 1310/1500] Reward: 245.5 (Avg: 253.2) Steps: 171 (Avg: 170.1) Noise: 0.081
+[Episode 1320/1500] Reward: 258.5 (Avg: 257.5) Steps: 170 (Avg: 169.9) Noise: 0.080
+[Episode 1330/1500] Reward: 259.6 (Avg: 258.1) Steps: 170 (Avg: 169.9) Noise: 0.079
+[Episode 1340/1500] Reward: 259.6 (Avg: 257.6) Steps: 170 (Avg: 169.9) Noise: 0.079
+[Episode 1350/1500] Reward: 252.7 (Avg: 253.6) Steps: 170 (Avg: 170.0) Noise: 0.078
+[Episode 1360/1500] Reward: 247.6 (Avg: 255.6) Steps: 170 (Avg: 169.9) Noise: 0.077
+[Episode 1370/1500] Reward: 259.6 (Avg: 257.9) Steps: 170 (Avg: 170.1) Noise: 0.076
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Episode 1380/1500] Reward: 254.9 (Avg: 256.3) Steps: 170 (Avg: 169.9) Noise: 0.075
+[Episode 1390/1500] Reward: 256.5 (Avg: 257.7) Steps: 170 (Avg: 169.8) Noise: 0.075
+[Trainer] 模型保存至: models/drl_agent\ddpg_episode_1400.pth
+[Episode 1400/1500] Reward: 259.5 (Avg: 255.2) Steps: 170 (Avg: 169.9) Noise: 0.074
+[Episode 1410/1500] Reward: 248.8 (Avg: 253.7) Steps: 170 (Avg: 169.8) Noise: 0.073
+[Episode 1420/1500] Reward: 251.1 (Avg: 256.5) Steps: 170 (Avg: 170.1) Noise: 0.072
+[Episode 1430/1500] Reward: 255.5 (Avg: 254.8) Steps: 170 (Avg: 169.8) Noise: 0.072
+[Trainer] 模型保存至: models/drl_agent\ddpg_best.pth
+[Episode 1440/1500] Reward: 257.9 (Avg: 255.6) Steps: 169 (Avg: 169.7) Noise: 0.071
+[Episode 1450/1500] Reward: 252.6 (Avg: 257.5) Steps: 170 (Avg: 169.8) Noise: 0.070
+[Episode 1460/1500] Reward: 249.3 (Avg: 253.9) Steps: 170 (Avg: 169.6) Noise: 0.070
+[Episode 1470/1500] Reward: 256.4 (Avg: 255.4) Steps: 169 (Avg: 169.9) Noise: 0.069
+[Episode 1480/1500] Reward: 259.4 (Avg: 251.7) Steps: 170 (Avg: 169.5) Noise: 0.068
+[Episode 1490/1500] Reward: 259.6 (Avg: 258.2) Steps: 170 (Avg: 169.6) Noise: 0.068
+[Episode 1500/1500] Reward: 259.3 (Avg: 256.6) Steps: 170 (Avg: 169.8) Noise: 0.067
+[Trainer] 模型保存至: models/drl_agent\ddpg_final.pth
+
+[Trainer] 训练完成！
+  总步数: 416448
+  最佳奖励: 259.7
+  最后100轮平均奖励: 255.4
+  成功率: 100.00%
+????: 4430.8 s
+[Agent] 模型加载成功: models/drl_agent\ddpg_best.pth
+=======================================================
+?????????60 ??????:
+  ???: 100%  (60/60)
+  ???: 0%  (0/60)
+  ????: 167.0
+=======================================================

@@ -1,0 +1,15 @@
+﻿==================================================
+AirSim Hybrid Avoidance - ���η���
+Ŀ���: (100.0, 0.0)
+�����ļ�: config/default.yaml
+==================================================
+[Agent] ģ�ͼ��سɹ�: models/drl_agent\ddpg_best.pth
+[GlobalPlanner] ·���滮�ɹ����� 200 ��·��
+[Supervisor] ?????: logs/flights/flight_20260819_054901.csv
+
+���н��:
+  �ɹ�: False
+  ԭ��: position_jump_60.8m_restart_ue
+  ����: 13
+  ��ʱ: 4.62s
+  ·������: 0.00m

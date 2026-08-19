@@ -20,9 +20,12 @@ def main():
     parser.add_argument("--config", type=str, default="config/default.yaml",
                         help="配置文件路径")
     parser.add_argument("--max_steps", type=int, default=1000, help="最大步数")
+    parser.add_argument("--no-reload", action="store_true",
+                        help="skip LoadScene before flight")
     args = parser.parse_args()
 
-    run_single_flight(args.goal_x, args.goal_y, args.config, args.max_steps)
+    run_single_flight(args.goal_x, args.goal_y, args.config, args.max_steps,
+                      reload_scene=not args.no_reload)
 
 
 if __name__ == "__main__":

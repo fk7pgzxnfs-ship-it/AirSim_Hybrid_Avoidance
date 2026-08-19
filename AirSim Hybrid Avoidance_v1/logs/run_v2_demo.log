@@ -1,0 +1,74 @@
+﻿============================================================
+AirSim Hybrid Avoidance v2 demo
+  corridor: 100m x 10m, obstacles at x=30 / x=65
+  flights:  3, goal: (100.0, 0.0), max_steps: 2000
+============================================================
+
+------------------------------------------------------------
+[demo] flight 1/3 start
+------------------------------------------------------------
+==================================================
+AirSim Hybrid Avoidance - 单次飞行
+目标点: (100.0, 0.0)
+配置文件: config/default.yaml
+==================================================
+[run_flight] LoadScene: {'result': 'SceneDroneClassic'}
+[Agent] 模型加载成功: models/drl_agent\ddpg_best.pth
+[GlobalPlanner] 路径规划成功，共 200 个路点
+[Supervisor] ?????: logs/flights/flight_20260819_061127.csv
+
+飞行结果:
+  成功: True
+  步数: 145
+  耗时: 52.42s
+  路径长度: 112.64m
+[demo] flight 1 result: success=True steps=145 time=52.4s collisions={'Obstacle1': 0, 'Obstacle2': 0} csv=flight_20260819_061127.csv
+
+------------------------------------------------------------
+[demo] flight 2/3 start
+------------------------------------------------------------
+==================================================
+AirSim Hybrid Avoidance - 单次飞行
+目标点: (100.0, 0.0)
+配置文件: config/default.yaml
+==================================================
+[run_flight] LoadScene: {'result': 'SceneDroneClassic'}
+[Agent] 模型加载成功: models/drl_agent\ddpg_best.pth
+[GlobalPlanner] 路径规划成功，共 200 个路点
+[Supervisor] ?????: logs/flights/flight_20260819_061230.csv
+
+飞行结果:
+  成功: True
+  步数: 145
+  耗时: 52.41s
+  路径长度: 112.00m
+[demo] flight 2 result: success=True steps=145 time=52.4s collisions={'Obstacle1': 0, 'Obstacle2': 0} csv=flight_20260819_061230.csv
+
+------------------------------------------------------------
+[demo] flight 3/3 start
+------------------------------------------------------------
+==================================================
+AirSim Hybrid Avoidance - 单次飞行
+目标点: (100.0, 0.0)
+配置文件: config/default.yaml
+==================================================
+[run_flight] LoadScene: {'result': 'SceneDroneClassic'}
+[Agent] 模型加载成功: models/drl_agent\ddpg_best.pth
+[GlobalPlanner] 路径规划成功，共 200 个路点
+[Supervisor] ?????: logs/flights/flight_20260819_061333.csv
+
+飞行结果:
+  成功: True
+  步数: 145
+  耗时: 52.35s
+  路径长度: 112.53m
+[demo] flight 3 result: success=True steps=145 time=52.4s collisions={'Obstacle1': 0, 'Obstacle2': 0} csv=flight_20260819_061333.csv
+
+============================================================
+SUMMARY
+============================================================
+flight 1: PASS  steps=145 time=52.4s x_max=98.8 y=[-4.42,4.39] z=[-21.3,-13.1] obs_collisions={'Obstacle1': 0, 'Obstacle2': 0}
+flight 2: PASS  steps=145 time=52.4s x_max=98.6 y=[-4.37,4.38] z=[-17.2,-10.2] obs_collisions={'Obstacle1': 0, 'Obstacle2': 0}
+flight 3: PASS  steps=145 time=52.4s x_max=98.9 y=[-4.33,4.54] z=[-21.0,-13.1] obs_collisions={'Obstacle1': 0, 'Obstacle2': 0}
+============================================================
+ALL PASS

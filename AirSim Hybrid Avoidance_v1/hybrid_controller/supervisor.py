@@ -1,12 +1,12 @@
 """
-混合控制器总控
-整合全局规划 + 局部避障 + 安全切换的三层决策循环
+??????? (v2 / UE 5.7)
+??????(A*) + ????(DRL) + ????(??)???????
 """
 
 import sys
 import os
 
-# 自动将项目根目录加入 sys.path，支持直接运行此文件
+# ?????????? sys.path??????????
 _project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
@@ -15,9 +15,8 @@ import time
 import numpy as np
 import yaml
 
-from airsim_interface.client import AirSimClientWrapper
+from airsim_interface.projectairsim_client import ProjectAirSimClientWrapper
 from airsim_interface.sensor_processor import SensorProcessor
-from airsim_interface.utils import get_yaw_from_quaternion
 from hybrid_controller.global_planner import GlobalPlanner
 from hybrid_controller.local_planner import LocalPlanner
 from hybrid_controller.safety_monitor import SafetyMonitor
@@ -26,60 +25,45 @@ from planning.potential_field import PotentialField
 
 
 class Supervisor:
-    """
-    总控器：三层混合架构主循环
-
-    每帧决策流程：
-    1. 全局规划器 → 获取当前目标点
-    2. 局部规划器（DRL）→ 输出避障动作
-    3. 安全监视器 → 校验/修正动作
-    4. 发送最终指令
-    """
+    """?????????????"""
 
     def __init__(self, config_path: str = "config/default.yaml"):
-        """
-        Args:
-            config_path: 配置文件路径
-        """
-        # 加载配置
         with open(config_path, 'r', encoding='utf-8') as f:
             self.cfg = yaml.safe_load(f)
-
-        # 初始化各模块
         self._init_modules()
-
-        # 状态跟踪
         self.flight_log = []
         self.step_count = 0
         self.is_running = False
 
     def _init_modules(self) -> None:
-        """初始化所有子模块"""
         cfg = self.cfg
 
-        # AirSim 客户端
-        self.client = AirSimClientWrapper(
-            ip=cfg['airsim']['ip'],
+        # ????????/??LiDAR??: [x, y, ????]
+        physical_obstacles = cfg['map'].get('obstacles_physical',
+                                            [[o[0], o[1], 1.0] for o in cfg['map']['obstacles']])
+
+        # UE ???
+        self.client = ProjectAirSimClientWrapper(
+            drone_name=cfg['airsim']['vehicle_name'],
+            scene_id=cfg['airsim']['scene_id'],
+            obstacles=physical_obstacles,
+            addr=cfg['airsim']['ip'],
             port=cfg['airsim']['port'],
-            vehicle_name=cfg['airsim']['vehicle_name']
         )
 
-        # 栅格地图
+        # ????????????????
         self.grid_map = GridMap(
-            x_min=cfg['map']['x_min'],
-            x_max=cfg['map']['x_max'],
-            y_min=cfg['map']['y_min'],
-            y_max=cfg['map']['y_max'],
+            x_min=cfg['map']['x_min'], x_max=cfg['map']['x_max'],
+            y_min=cfg['map']['y_min'], y_max=cfg['map']['y_max'],
             resolution=cfg['map']['resolution']
         )
         self.grid_map.add_obstacle_list(cfg['map']['obstacles'])
+        self.grid_map.inflate_obstacles(0.5)
 
-        # 传感器处理
-        self.sensor_processor = SensorProcessor(
-            max_range=30.0, num_sectors=16
-        )
+        # ?????
+        self.sensor_processor = SensorProcessor(max_range=35.0, num_sectors=16)
 
-        # 全局规划器
+        # ?????
         gp_cfg = cfg['global_planner']
         self.global_planner = GlobalPlanner(
             grid_map=self.grid_map,
@@ -88,16 +72,30 @@ class Supervisor:
             max_speed=gp_cfg['max_speed']
         )
 
-        # 局部规划器（无DRL模型时为占位）
+        # ??????DRL?
         drl_cfg = cfg['drl']
+        agent = None
+        ckpt = cfg['model'].get('load_checkpoint', '')
+        if cfg['model'].get('enable', True) and ckpt:
+            ckpt_path = os.path.join(cfg['model'].get('save_dir', 'models/drl_agent'), ckpt)
+            if os.path.exists(ckpt_path):
+                from drl.agent import DRLAgent
+                agent = DRLAgent(
+                    state_dim=drl_cfg['env']['state_dim'],
+                    action_dim=drl_cfg['env']['action_dim'],
+                    hidden_layers=drl_cfg['network']['hidden_layers'],
+                    action_low=drl_cfg['env']['action_low'],
+                    action_high=drl_cfg['env']['action_high'],
+                )
+                agent.load(ckpt_path)
         self.local_planner = LocalPlanner(
-            agent=None,
+            agent=agent,
             action_dim=drl_cfg['env']['action_dim'],
             action_low=drl_cfg['env']['action_low'],
             action_high=drl_cfg['env']['action_high']
         )
 
-        # 安全监视器
+        # ?????
         pf_cfg = cfg['potential_field']
         potential_field = PotentialField(
             repulsive_gain=pf_cfg['repulsive_gain'],
@@ -109,61 +107,102 @@ class Supervisor:
             potential_field=potential_field
         )
 
-        # 目标位置
+        # ??/??
         self.start_pos = np.array(cfg['map']['origin'][:2])
-        self.goal_pos = np.array([10.0, 10.0])  # 默认终点
+        self.goal_pos = np.array(cfg['map'].get('goal', [100.0, 0.0])[:2])
+        self.y_min = cfg['map']['y_min']
+        self.y_max = cfg['map']['y_max']
+        self.x_min = cfg['map']['x_min']
+        self.x_max = cfg['map']['x_max']
 
     def set_goal(self, goal_x: float, goal_y: float) -> None:
-        """设置目标位置"""
         self.goal_pos = np.array([goal_x, goal_y])
 
-    def run(self, max_steps: int = 1000) -> dict:
-        """
-        执行主控制循环
 
-        Args:
-            max_steps: 最大步数
+    def _clamp_to_corridor(self, action: np.ndarray) -> np.ndarray:
+        """限制在 10m 走廊内（含惯性越界后的强回拉）"""
+        a = action.copy()
+        p = self.client.get_position()
+        margin = 1.5
+        # y 方向：上墙（y_max=5）
+        if p[1] > self.y_max - margin:
+            a[1] = min(a[1], 0.0)                 # 不向外推
+            if p[1] > self.y_max - 0.4:
+                a[1] = min(a[1], -1.5)            # 越界过深，强制拉回
+        # y 方向：下墙（y_min=-5）
+        if p[1] < self.y_min + margin:
+            a[1] = max(a[1], 0.0)
+            if p[1] < self.y_min + 0.4:
+                a[1] = max(a[1], 1.5)
+        # x 方向：终点墙（x_max=100）
+        if p[0] > self.x_max - margin:
+            a[0] = min(a[0], 0.0)
+            if p[0] > self.x_max - 0.4:
+                a[0] = min(a[0], -1.5)
+        # x 方向：起点墙（x_min=0）
+        if p[0] < self.x_min + 0.5 and a[0] < 0:
+            a[0] = max(a[0], 0.0)
+        return a
 
-        Returns:
-            飞行结果统计
-        """
-        # 起飞
+    def run(self, max_steps: int = 2000) -> dict:
+        # 每次运行前复位到地面层，再走真实起飞流程（保证可重复执行）
+        self.client.reset_position(self.start_pos[0], self.start_pos[1], -0.4)
+        time.sleep(1.0)
+        p0 = self.client.get_position()
+        if np.linalg.norm(p0[:2] - self.start_pos) > 1.5:
+            self.client.reset_position(self.start_pos[0], self.start_pos[1], -0.4)
+            time.sleep(1.0)
+            p0 = self.client.get_position()
+        if np.linalg.norm(p0[:2] - self.start_pos) > 1.5:
+            return {"success": False, "reason": "reset_failed_drone_stuck_restart_ue", "steps": 0, "time": 0.0}
         self.client.takeoff(height=self.cfg['airsim']['takeoff_height'])
         time.sleep(0.5)
 
-        # 规划全局路径
+        # ??????
         current_pos = self.client.get_position()
         if not self.global_planner.plan_path(current_pos, self.goal_pos):
-            return {"success": False, "reason": "路径规划失败"}
+            return {"success": False, "reason": "??????"}
 
         self.is_running = True
         self.step_count = 0
         start_time = time.time()
+        prev_pos = None
 
         while self.is_running and self.step_count < max_steps:
             self.step_count += 1
 
-            # ---- 1. 获取状态 ----
+            # ---- 1. ???? ----
             current_pos = self.client.get_position()
             velocity = self.client.get_velocity()
+
+            # v2 anomaly: jump > 4m in one 0.3s step => UE actor snapped back
+            if prev_pos is not None:
+                jump = np.linalg.norm(current_pos[:2] - prev_pos[:2])
+                if jump > 4.0:
+                    try:
+                        self.client.send_velocity(0, 0)
+                    except Exception:
+                        pass
+                    return {"success": False, "reason": "position_jump_%.1fm_restart_ue" % jump,
+                            "steps": self.step_count, "time": time.time() - start_time}
+            prev_pos = current_pos.copy()
+
             lidar_points = self.client.get_lidar_data()
+            yaw = self.client.get_yaw()
 
-            # 获取四元数并提取偏航角
-            state = self.client.client.getMultirotorState(
-                vehicle_name=self.client.vehicle_name
-            )
-            yaw = get_yaw_from_quaternion(
-                state.kinematics_estimated.orientation
-            )
-
-            # ---- 2. 全局规划：获取目标点 ----
+            # ---- 2. ?????????? ----
             next_waypoint = self.global_planner.get_next_waypoint(current_pos)
 
-            # 检查是否到达终点
+            # ????????
             if self.global_planner.is_goal_reached(current_pos, self.goal_pos):
-                self.client.send_velocity(0, 0)
+                # v2: ??????????? Land/Disarm/DisableApiControl?
+                # ?????? UE actor ???????????????????????
+                try:
+                    self.client.send_velocity(0, 0)
+                    self.client.hover()
+                except Exception:
+                    pass
                 elapsed = time.time() - start_time
-                self.client.land()
                 return {
                     "success": True,
                     "steps": self.step_count,
@@ -171,86 +210,82 @@ class Supervisor:
                     "path_length": self._compute_path_length()
                 }
 
-            # ---- 3. 局部规划（DRL） ----
+            # ---- 3. ?????DRL? ----
             if lidar_points.shape[0] > 0:
-                sector_distances = self.sensor_processor.lidar_to_polar(
-                    lidar_points
-                )
-                nearest_dist, nearest_angle = \
-                    self.sensor_processor.find_nearest_obstacle(lidar_points)
+                sector_distances = self.sensor_processor.lidar_to_polar(lidar_points)
+                nearest_dist, nearest_angle =                     self.sensor_processor.find_nearest_obstacle(lidar_points)
             else:
-                sector_distances = np.ones(16) * 30.0
-                nearest_dist, nearest_angle = 30.0, 0.0
+                sector_distances = np.ones(16) * 35.0
+                nearest_dist, nearest_angle = 35.0, 0.0
 
-            # 构建DRL状态
+            # DRL state 必须相对真实目标点构造（与训练一致），
+            # 不能用 A* 路点（训练时 state 相对 goal 归一化）
             state = self.local_planner.build_state(
-                current_pos, next_waypoint, velocity,
+                current_pos, self.goal_pos, velocity,
                 sector_distances, nearest_dist, nearest_angle
             )
-
-            # DRL输出动作
             drl_action = self.local_planner.get_action(state)
 
-            # ---- 4. 安全检测 ----
-            obstacle_positions = lidar_points[:, :2] if lidar_points.shape[0] > 0 \
-                else np.array([]).reshape(0, 2)
-
+            # ---- 4. ???? ----
+            obstacle_positions = self.client.get_obstacles()[:, :2]                 if lidar_points.shape[0] > 0 else np.array([]).reshape(0, 2)
             safety_result = self.safety_monitor.check(
                 current_pos, velocity, obstacle_positions
             )
 
-            # ---- 5. 最终指令选择 ----
+            # ---- 5. ?????? ----
             if not safety_result["safe"]:
-                # 安全切换器接管
                 final_action = safety_result["action"]
                 mode = "SAFETY"
             elif self.local_planner.has_model():
-                # DRL 控制
                 final_action = drl_action
                 mode = "DRL"
             else:
-                # 纯全局路径跟踪
                 final_action = self.global_planner.get_velocity_command(
                     current_pos, yaw, next_waypoint
                 )
                 mode = "GLOBAL"
 
-            # ---- 6. 发送指令 ----
-            self.client.send_velocity(
-                final_action[0], final_action[1], duration=0.3
-            )
+            # ??????
+            final_action = self._clamp_to_corridor(final_action)
 
-            # ---- 7. 记录日志 ----
+            # ---- 6. ???? ----
+            self.client.send_velocity(final_action[0], final_action[1],
+                                      duration=0.3)
+
+            # ---- 7. ???? ----
             self.flight_log.append({
                 "step": self.step_count,
-                "x": current_pos[0],
-                "y": current_pos[1],
-                "z": current_pos[2],
-                "vx": velocity[0],
-                "vy": velocity[1],
+                "x": current_pos[0], "y": current_pos[1], "z": current_pos[2],
+                "vx": velocity[0], "vy": velocity[1],
                 "mode": mode,
-                "nearest_obs": nearest_dist
+                "nearest_obs": nearest_dist,
+                "action_x": float(final_action[0]),
+                "action_y": float(final_action[1]),
             })
 
             time.sleep(0.05)
 
-        # 到达最大步数
-        self.client.send_velocity(0, 0)
+        # ??????
+        try:
+            self.client.send_velocity(0, 0)
+        except Exception:
+            pass
         elapsed = time.time() - start_time
         return {
             "success": False,
-            "reason": f"达到最大步数 {max_steps}",
+            "reason": "?????? %d" % max_steps,
             "steps": self.step_count,
             "time": elapsed
         }
 
     def stop(self) -> None:
-        """停止飞行"""
         self.is_running = False
-        self.client.send_velocity(0, 0)
+        try:
+            self.client.send_velocity(0, 0)
+        except Exception:
+            pass
 
     def _compute_path_length(self) -> float:
-        """计算飞行路径总长度"""
         if len(self.flight_log) < 2:
             return 0.0
         total = 0.0
@@ -261,12 +296,17 @@ class Supervisor:
         return total
 
     def get_log(self) -> list:
-        """获取飞行日志"""
         return self.flight_log
 
     def save_log(self, filepath: str = "logs/flights/flight_log.csv") -> None:
-        """保存飞行日志到CSV"""
-        import pandas as pd
-        df = pd.DataFrame(self.flight_log)
-        df.to_csv(filepath, index=False)
-        print(f"[Supervisor] 日志保存至: {filepath}")
+        import csv
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        if not self.flight_log:
+            print("[Supervisor] ?????")
+            return
+        keys = list(self.flight_log[0].keys())
+        with open(filepath, "w", newline="", encoding="utf-8") as f:
+            w = csv.DictWriter(f, fieldnames=keys)
+            w.writeheader()
+            w.writerows(self.flight_log)
+        print("[Supervisor] ?????: %s" % filepath)

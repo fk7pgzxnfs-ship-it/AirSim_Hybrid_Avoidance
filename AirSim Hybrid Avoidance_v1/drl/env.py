@@ -57,6 +57,7 @@ class DroneEnv(gym.Env):
                                    self.supervisor.cfg['airsim']['takeoff_height'])
 
         self.step_count = 0
+        self._prev_goal_dist = None
         info = {}
 
         # 获取初始状态
@@ -80,7 +81,9 @@ class DroneEnv(gym.Env):
 
         # 发送速度指令
         self.client.send_velocity(action[0], action[1], duration=0.3)
-        time.sleep(0.1)
+        sleep_step = self.cfg.get('sleep_step', 0.1)
+        if sleep_step:
+            time.sleep(sleep_step)
 
         # 获取新状态
         next_state = self._get_state()
@@ -169,6 +172,13 @@ class DroneEnv(gym.Env):
         if nearest_dist < 3.0:
             reward += self.reward_cfg.get('obstacle_penalty', -5.0) * \
                       (1.0 - nearest_dist / 3.0)
+
+        # 走廊边界惩罚：|y|>4.5 开始惩罚，迫使策略保持在板面内（UE 地面板 y∈[-5,5]）
+        # state[1] = dy = goal_y - y（goal_y=0），故 |y| = |state[1]|
+        corr_limit = self.reward_cfg.get('corridor_limit', 4.5)
+        corr_pen = self.reward_cfg.get('corridor_penalty', 3.0)
+        if abs(state[1]) > corr_limit:
+            reward += -corr_pen * (abs(state[1]) - corr_limit)
 
         self._prev_goal_dist = current_dist
         return reward

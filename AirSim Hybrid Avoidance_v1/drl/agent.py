@@ -52,7 +52,7 @@ class DRLAgent:
             是否加载成功
         """
         try:
-            checkpoint = torch.load(path, map_location=self.device)
+            checkpoint = torch.load(path, map_location=self.device, weights_only=False)
             if 'actor_state_dict' in checkpoint:
                 self.actor.load_state_dict(checkpoint['actor_state_dict'])
             else:
