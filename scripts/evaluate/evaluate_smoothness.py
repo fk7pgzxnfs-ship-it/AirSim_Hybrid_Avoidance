@@ -1,8 +1,8 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """v2.1: smoothness metrics for DroneEnv episodes (success/collision + smoothness)."""
 import sys, os, io
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 import numpy as np, yaml
 from drl.sim_client import KinematicSimClient, TrainSupervisor
 from drl.env import DroneEnv

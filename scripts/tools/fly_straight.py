@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-""
+"""
 直线飞行脚本: 空地图 100m 长, 无人机从 (0,0) 飞到 (100,0)
 用法: python fly_straight.py [--distance 100] [--speed 5]
 要求: UE 正在 Play/‐game 状态 (ProjectAirSim, 端口 8990)

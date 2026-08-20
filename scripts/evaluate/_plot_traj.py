@@ -1,8 +1,8 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """Plot a v2.1 sample trajectory (vel_tc=0.1, UE-aligned) to inspect straight segments."""
 import sys, os, io
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 import numpy as np, yaml
 import matplotlib; matplotlib.use("Agg")
 import matplotlib.pyplot as plt

@@ -17,13 +17,13 @@ import re
 import argparse
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from airsim_interface.projectairsim_client import check_connection
 from experiments.run_flight import run_single_flight
 
 UE_LOG = r"D:\ProjectAirSim-main\unreal\Blocks 5.7\Saved\Logs\Blocks.log"
-FLIGHTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs", "flights")
+FLIGHTS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "logs", "flights")
 
 
 def count_obstacle_collisions(since_bytes: int) -> dict:

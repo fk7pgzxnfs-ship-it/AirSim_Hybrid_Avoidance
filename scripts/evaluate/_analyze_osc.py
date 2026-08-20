@@ -2,7 +2,7 @@
 """Read-only analysis: does the trained policy oscillate in the training sim?"""
 import io, sys, os
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-sys.path.insert(0, r"C:\Users\13631\Documents\GitHub\AirSim_Hybrid_Avoidance\AirSim Hybrid Avoidance_v1")
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 import numpy as np
 from drl.agent import DRLAgent
 from drl.sim_client import KinematicSimClient
