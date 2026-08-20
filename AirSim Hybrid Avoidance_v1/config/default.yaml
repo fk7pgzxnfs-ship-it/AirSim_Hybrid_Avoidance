@@ -1,60 +1,62 @@
-# ============================================================
-# AirSim Hybrid Avoidance - v2 ????UE 5.7 / Project AirSim?
-# ??: 100m x 10m ?? + ????? (x=30, x=65)
+﻿# ============================================================
+# AirSim Hybrid Avoidance - v2.1 修复 DRL 直线段蛇形振荡
+# 场景: 100m x 10m 走廊 + 双障碍物 (x=30, x=65)
 # ============================================================
 
-# -------- UE / Project AirSim ???? --------
+# -------- UE / Project AirSim 通信配置 --------
 airsim:
   ip: "127.0.0.1"
-  port: 8990                 # UE ???? (Project AirSim)
-  vehicle_name: "Drone1"     # ????????
+  port: 8990                 # UE 端口 (Project AirSim)
+  vehicle_name: "Drone1"     # 无人机名
   scene_id: "SceneDroneClassic"
-  takeoff_height: -12.0      # ???? (NED, ?=?) 12m
+  takeoff_height: -12.0      # 起飞高度 (NED, 上为正) 12m
 
-# -------- ???????? (100m x 10m ??) --------
+# -------- 地图配置 (100m x 10m 走廊) --------
 map:
   x_min: 0.0
   x_max: 100.0
   y_min: -5.0
   y_max: 5.0
   resolution: 0.5
-  origin: [0.0, 0.0, -12.0]  # ?? (x, y, z)
-  goal: [100.0, 0.0]        # ?? (x, y)
+  origin: [0.0, 0.0, -12.0]  # 起点 (x, y, z)
+  goal: [100.0, 0.0]        # 终点 (x, y)
 
-  # ?????: [x, y, ????]????? 2x2x14m???1m??
-  # ??? 1.5m ??????A*/???
+  # 规划障碍物: [x, y, 半径]（2x2x14m 等效半径 1m）
+  # 半径 1.5m 用于膨胀 A*/势场
   obstacles:
     - [30.0, 0.0, 1.5]
     - [65.0, 0.0, 1.5]
 
-  # ????????/LiDAR????: [x, y, ????]
+  # 物理障碍物/LiDAR 等效: [x, y, 半径]
   obstacles_physical:
     - [30.0, 0.0, 1.0]
     - [65.0, 0.0, 1.0]
 
-# -------- A* ?????? --------
+# -------- A* 全局规划参数 --------
 a_star:
   heuristic_weight: 1.2
   diagonal_movement: true
   max_iterations: 100000
 
-# -------- ?????????????? --------
+# -------- 势场/安全监控参数 --------
 potential_field:
   repulsive_gain: 60.0
   attractive_gain: 1.0
   repulsive_range: 5.0
   safety_distance: 2.5
 
-# -------- ???????? --------
+# -------- 全局规划器参数 --------
 global_planner:
   lookahead_distance: 4.0
   waypoint_reach_threshold: 1.2
   max_speed: 3.0
 
-# -------- DRL ???? --------
+# -------- DRL 训练配置 --------
 drl:
   algorithm: "ddpg"
   seed: 42
+  # v2.1: 训练仿真速度惯性保持 0.5s（与 v2.0 一致的训练动态，保证收敛）
+  vel_time_constant: 0.5
   env:
     max_steps: 400
     state_dim: 8
@@ -85,14 +87,18 @@ drl:
     obstacle_penalty: -6.0
     corridor_limit: 4.5
     corridor_penalty: 3.0
+    # v2.1: 动作平滑惩罚（每步 |Δaction| 系数）与横向偏移惩罚（每米 |y| 系数）
+    # 平滑惩罚促使策略输出平滑指令，消除部署端（fast-physics）蛇形轨迹
+    action_smooth_penalty: 0.15
+    lateral_penalty: 0.10
 
-# -------- ?????? --------
+# -------- 模型配置 --------
 model:
   save_dir: "models/drl_agent"
   load_checkpoint: "ddpg_best.pth"
-  enable: true             # DRL ??????????? true?
+  enable: true             # DRL 参与控制时置 true
 
-# -------- ???? --------
+# -------- 日志配置 --------
 logging:
   level: "info"
   save_trajectory: true

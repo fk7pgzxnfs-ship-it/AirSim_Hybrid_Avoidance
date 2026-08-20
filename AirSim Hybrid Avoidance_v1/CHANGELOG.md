@@ -2,6 +2,37 @@
 
 版本记录遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 风格。日期依据 `docs/handover.md` 与文件时间戳（确定事实）。
 
+## [v2.1] - 2026-08-20
+### 里程碑
+修复 v2.0 DRL 策略在直线段的蛇形振荡（左扭右扭）。**纯算法层解决**（奖励塑形），部署端零改动、无动作滤波。UE 对齐评估（vel_tc=0.1）：成功率 100%、碰撞 0%、直线段 y 标准差 0.30m。
+
+### 根因（确定事实）
+- v2.0 策略本身输出锯齿形动作（基线评估 `mean|Δaction|=2.368`、`action_y_std=1.591`），**不是部署特有问题**。
+- 训练仿真速度惯性（`vel_time_constant=0.5s`）掩盖振荡：仿真里动作突变被一阶速度跟踪低通，轨迹看起来平滑；UE fast-physics 直接执行目标速度，振荡指令直接变成蛇形轨迹。
+- 奖励无动作变化惩罚/横向偏移惩罚，策略学到"能完成任务但动作振荡"的局部最优。
+- 次要因素（sim-to-real gap）：部署端 `get_velocity()` 解析 `linear_velocity` 恒 0（UE 端字段为 `twist.linear`），导致部署时 state 的 vx/vy 恒 0。
+
+### 新增
+- **奖励塑形（算法层，无部署滤波）**：`drl/env.py` 新增动作平滑惩罚 `-action_smooth_penalty * |a_t - a_{t-1}|` 与横向偏移惩罚 `-lateral_penalty * |y|`；`step()` 计算 `action_change` 传给奖励计算。
+- **配置**：`config/default.yaml` 新增 `drl.reward.action_smooth_penalty: 0.15`、`lateral_penalty: 0.10`；`vel_time_constant: 0.5` 保持 v2.0 训练动态（曾试 0.1 对齐 UE，890 轮不收敛、奖励恒 -572 贴墙，已放弃改回 0.5）。
+- **评估工具**：`evaluate_smoothness.py`（任意 ckpt × 任意 vel_tc 评估成功率/碰撞/`mean|Δaction|`/`action_y_std`/y 符号切换/路径比/y 跨度）、`_analyze_segments.py`（直线段 nd>8m / 避障段 nd<=8m 分段分析）、`_plot_traj.py`（样例轨迹图）。
+- **训练脚本**：`train_drl_v2.py` 支持 `--tag`；训练后自动评估新增平滑度指标；`--tag` 默认值改为 `v21b`。
+
+### 修复
+- **部署端速度反馈（sim-to-real 正确性修复）**：`airsim_interface/projectairsim_client.py` 的 `get_velocity()` 优先读 `twist.linear`，兼容旧字段 `linear_velocity`；此前 UE 返回的速度恒 0 导致部署 state 的 vx/vy 恒 0。
+
+### 变更
+- **重训结果（v2.1b 最终模型）**：1500 轮训练，最后 100 轮平均奖励 230.2、成功率 100%、耗时约 24.5 分钟（CPU）；训练日志 `logs/train_v21b.log`。
+- **UE 对齐评估（vel_tc=0.1，60 局随机布局）**：成功率 100%（60/60）、碰撞率 0%、平均 166 步、`mean|Δaction|=0.124`、`action_y_std=0.612`、y 符号切换 5.1、路径/直线比 1.0312、y 跨度 4.857m。
+- **分段分析（vel_tc=0.1）**：直线段（nd>8m）y 跨度 1.52m、y 标准差 0.30m、累计 |dy| 6.7m、y 符号切换 5.1；避障段（nd<=8m）y 跨度 4.63m、y 标准差 1.43m。
+- **模型**：`models/drl_agent/ddpg_best.pth` = v2.1b；v2.0 备份 `ddpg_v20_backup.pth`；v2.1a 试训 `ddpg_v21a_smooth010_lat005.pth`。
+- 对比 v2.0 基线（UE 对齐评估）：`mean|Δaction|` 2.368→0.124（-95%）、`action_y_std` 1.591→0.612、路径/直线比 1.1305→1.0312、y 跨度 7.534→4.857m。
+- 轨迹图 `logs/train/traj_v21_fixed.png`（vel_tc=0.1 固定障碍样例）：直线段 y 基本贴 0，避障干脆。
+
+### 说明
+- **UE 实机复核（不确定信息）**：本轮未在 UE 实机重新飞行（UE 未运行）；v2.1 模型建议在 UE 上跑 `run_v2_demo.py --flights 3` 复核一次。
+- **剩余限制**：直线段 y 波动已从 ~7.5m 跨度降到 ~1.5m（y_std 0.30m），非绝对零摆动；如需进一步压低可上调两个惩罚系数（注意避障段 y 跨度略增、奖励略降）。
+- 失败尝试日志 `logs/train_v21.log`（vel_tc=0.1 不收敛）已删除，保留 `logs/train_v21b.log` 作为最终训练记录。
 ## [v2.0] - 2026-08-19
 ### 里程碑
 UE 5.7 实机闭环达成：**100m×10m 走廊 + 双障碍物（x=30 / x=65）避障**，DRL 训练 100% 评估通过，7 次连续实机飞行全部干净（x 0→98.8、y∈±4.6、z 巡航保持、Obstacle 碰撞 = 0）。

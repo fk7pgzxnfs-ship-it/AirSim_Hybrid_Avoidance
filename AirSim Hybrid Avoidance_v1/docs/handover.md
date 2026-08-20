@@ -647,3 +647,61 @@ python experiments/visualize.py --mode 2d --log logs/flights/flight_xxx.csv
 
 ### 当前 UE 进程状态（2026-08-19 06:15）
 - UE 5.7 运行中（GISMap + SceneDroneClassic，端口 8990/8989），场景干净；最后一次 demo 飞行后无人机悬停在终点附近（API 控制保持，未 Land/Disarm——避免触发回弹）。
+
+---
+
+## 11.12 v2.1 直线段蛇形振荡修复（2026-08-20）
+
+### 目标与约束（确定事实）
+- 问题：v2.0 模型在 UE 实机飞行时，直线段"左扭右扭"（蛇形振荡）。
+- 用户约束：**不允许在部署端加任何动作滤波/平滑**，纯靠训练算法让动作变得丝滑。
+- v2.1 标准：10m×100m 走廊 + 两个障碍物（x=30 / x=65），直线段几乎不扭，避障正常，训练成功率 100%、碰撞 0%。
+
+### 根因分析（确定事实）
+1. **策略本身输出锯齿形动作**：`_analyze_osc.py` 在训练仿真里复现，v2.0 策略的 `action_y` 每步满幅反向切换（基线 UE 对齐评估 `mean|Δaction|=2.368`、`action_y_std=1.591`）。不是部署特有问题。
+2. **训练动态掩盖振荡**：训练仿真速度惯性 `vel_time_constant=0.5s`（一阶速度跟踪），动作突变被低通，仿真轨迹看似平滑；UE fast-physics 直接执行目标速度，振荡指令直接变成蛇形轨迹。
+3. **奖励缺少平滑约束**：奖励里没有动作变化惩罚/横向偏移惩罚，策略学到"能完成任务但动作振荡"的局部最优。
+4. **次要因素（sim-to-real gap）**：部署端 `get_velocity()` 解析 `linear_velocity` 恒 0（UE 端字段是 `twist.linear`），部署时 state 的 vx/vy 恒 0，与训练状态分布不一致。
+
+### 修复方案（算法层，无部署滤波）
+- **奖励塑形**（`drl/env.py` + `config/default.yaml`）：
+  - `action_smooth_penalty: 0.15`：每步 `-0.15 × |a_t - a_{t-1}|`，惩罚相邻动作突变。
+  - `lateral_penalty: 0.10`：每步 `-0.10 × |y|`，惩罚横向偏移，鼓励直线段贴中轴线。
+- **训练动态保持 v2.0**：`vel_time_constant: 0.5`（曾试 `0.1` 对齐 UE fast-physics，890 轮不收敛、奖励恒 -572 贴墙，已放弃并改回 0.5）。
+- **部署端正确性修复**：`get_velocity()` 优先读 `twist.linear`，兼容旧字段 `linear_velocity`。此修复只消除 sim-to-real 状态偏差，不是动作滤波。
+
+### 重训与评估结果（确定事实）
+| 指标（UE 对齐评估 vel_tc=0.1，60 局） | v2.0 基线 | v2.1a (s=0.10,l=0.05) | v2.1b (s=0.15,l=0.10) |
+|---|---|---|---|
+| 成功率 | 100% | 100% | 100%（60/60） |
+| 碰撞率 | 0% | 0% | 0% |
+| 平均步数 | — | — | 166.0 |
+| mean\|Δaction\| | 2.368 | 0.206 | **0.124** |
+| action_y_std | 1.591 | — | **0.612** |
+| 路径/直线比 | 1.1305 | 1.0291 | **1.0312** |
+| y 跨度 | 7.534m | 6.302m | **4.857m** |
+| 直线段 y_std | — | 0.38m | **0.30m** |
+| 直线段 y_span | — | 2.46m | **1.52m** |
+| 直线段 y 符号切换 | — | 8.4 | **5.1** |
+
+- v2.1b 训练：1500 轮，最后 100 轮平均奖励 230.2、成功率 100%、耗时约 24.5 分钟（CPU），日志 `logs/train_v21b.log`。
+- 轨迹图 `logs/train/traj_v21_fixed.png`：直线段 y 在 ±0.3m 内几乎无摆动、避障干脆，**判定基本达标**。
+
+### 新增/变更文件
+- `drl/env.py`：`step()` 计算 `action_change`；`_compute_reward()` 新增平滑惩罚与横向偏移惩罚。
+- `config/default.yaml`：新增 `action_smooth_penalty` / `lateral_penalty`；`vel_time_constant: 0.5`。
+- `train_drl_v2.py`：支持 `--tag`（默认 `v21b`）；训练后评估新增平滑度指标。
+- 新增 `evaluate_smoothness.py` / `_analyze_segments.py` / `_plot_traj.py`。
+- `airsim_interface/projectairsim_client.py`：`get_velocity()` 字段修复。
+- 模型：`models/drl_agent/ddpg_best.pth` = v2.1b；备份 `ddpg_v20_backup.pth`、`ddpg_v21a_smooth010_lat005.pth`。
+
+### 复现/复核流程
+1. 无需 UE：`python evaluate_smoothness.py --vel-tc 0.1 --n 60`（成功率/碰撞/平滑度指标）。
+2. 分段：`python _analyze_segments.py`（直线段 nd>8m 的 y_std/y_span）。
+3. 轨迹图：`python _plot_traj.py`。
+4. UE 实机：启动 UE 后 `python run_v2_demo.py --flights 3`，检查轨迹 CSV 的 y 列在直线段是否基本贴 0。
+
+### 已知限制与待办（不确定信息/推测观点）
+- **UE 实机复核未完成**（本轮 UE 未运行）：v2.1b 的"实机直线段丝滑"结论目前由 2D 仿真（vel_tc=0.1 对齐评估）支持，未在 UE fast-physics 实机飞行中最终确认，需用户实测一次。
+- **直线段非绝对零摆动**：y_std 0.30m（跨度 1.52m）相对 v2.0（跨度 7.5m）已大幅改善，但仍有小幅波动（动作层、轨迹层 y 符号切换 ~5 次/局）。若实测仍嫌摆动，可上调 `action_smooth_penalty`/`lateral_penalty`（第二版优化值 0.15/0.10 已权衡：更平滑则避障段 y 跨度略增、奖励略降）。
+- 失败尝试记录：`vel_time_constant=0.1` 训练 890 轮不收敛（奖励恒 -572 贴墙），已删除相关日志，保留结论供后续参考。

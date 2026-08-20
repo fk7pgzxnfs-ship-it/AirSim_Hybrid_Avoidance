@@ -1,12 +1,12 @@
 """
-drl/sim_client.py - ?? 2D ?????????DRL ????
+drl/sim_client.py - 轻量 2D 训练仿真，供 DRL 训练使用
 ========================================================
-? ProjectAirSimClientWrapper ???????????????
-?? <1ms?????? DDPG ???
+替代 ProjectAirSimClientWrapper 的离线训练接口
+单步 <1ms，用于 DDPG 快速迭代
 
-???????????????????????
-        ????? duration ????? UE MoveByVelocity ?????
-????? episode ????????? ?1.5m???????????
+- 一阶速度跟踪仿真：目标速度经时间常数平滑，接近真实无人机动态
+        send_velocity 的 duration 模拟 UE MoveByVelocity 的步长
+每个 episode 开始时障碍物随机抖动 ±1.5m，增强泛化
 """
 
 import math
@@ -15,12 +15,12 @@ import numpy as np
 
 
 class KinematicSimClient:
-    """?? 2D ??????DroneEnv ????"""
+    """轻量 2D 训练仿真，供 DroneEnv 使用"""
 
     def __init__(self, obstacles=None, start=(0.0, 0.0, -12.0),
                  lidar_range=35.0, max_speed=3.0, vel_time_constant=0.5,
                  obstacle_jitter=1.5, noise_std=0.05, seed=42):
-        # ????? [x, y, ????]
+        # 基础障碍物 [x, y, 碰撞半径]
         self.base_obstacles = [(float(o[0]), float(o[1]), float(o[2]))
                                for o in (obstacles or [(30.0, 0.0, 1.0), (65.0, 0.0, 1.0)])]
         self.obstacles = list(self.base_obstacles)
@@ -38,12 +38,12 @@ class KinematicSimClient:
         self._collided = False
         self.use_real = False
 
-    # ---- ??? ----
+    # ---- 传感器接口 ----
     def get_obstacles(self):
         return np.array([[o[0], o[1], o[2]] for o in self.obstacles])
 
     def _randomize_obstacles(self):
-        """? episode ????????????????????????"""
+        """每个 episode 随机抖动障碍物位置，增强泛化"""
         new = []
         for ox, oy, r in self.base_obstacles:
             jx = self.rng.uniform(-self.obstacle_jitter, self.obstacle_jitter)
@@ -53,7 +53,7 @@ class KinematicSimClient:
             new.append((nx, ny, r))
         self.obstacles = new
 
-    # ---- ?? ----
+    # ---- 控制接口 ----
     def get_position(self):
         return self._pos.copy()
 
@@ -64,7 +64,7 @@ class KinematicSimClient:
         return self._yaw
 
     def get_lidar_data(self):
-        """??????????? UE ???????"""
+        """模拟 LiDAR（生成方式与 UE 端一致）"""
         points = []
         for ox, oy, r in self.obstacles:
             d = math.hypot(ox - self._pos[0], oy - self._pos[1])
@@ -84,18 +84,18 @@ class KinematicSimClient:
                 return True
         return False
 
-    # ---- ?? ----
+    # ---- 控制接口 ----
     def send_velocity(self, vx, vy, vz=0.0, duration=0.3):
         cmd = np.array([vx, vy, vz], dtype=float)
         cmd[:2] = np.clip(cmd[:2], -self.max_speed, self.max_speed)
         dt = max(duration, 1e-4)
-        # ??????
+        # 一阶速度跟踪
         alpha = dt / (self.vel_time_constant + dt)
         self._vel = self._vel + alpha * (cmd - self._vel)
         self._pos = self._pos + self._vel * dt
         if abs(self._vel[0]) > 0.05 or abs(self._vel[1]) > 0.05:
             self._yaw = math.atan2(self._vel[1], self._vel[0])
-        # ????
+        # 更新偏航
         self._pos[1] = np.clip(self._pos[1], -5.0, 5.0)
         self._pos[0] = np.clip(self._pos[0], -1.0, 101.0)
         self._collided = self.get_collision_info()
@@ -125,7 +125,7 @@ class KinematicSimClient:
         self._collided = False
         return True
 
-    # ---- ?? shim ----
+    # ---- 兼容 shim ----
     def getMultirotorState(self, vehicle_name=""):
         class _S:
             pass
@@ -154,7 +154,7 @@ class KinematicSimClient:
 
 
 class TrainSupervisor:
-    """?? Supervisor ???????? DroneEnv ?????"""
+    """为 Supervisor 提供训练桩，供 DroneEnv 使用"""
 
     def __init__(self, client, start=(0.0, 0.0, -12.0), goal=(100.0, 0.0),
                  takeoff_height=-12.0):

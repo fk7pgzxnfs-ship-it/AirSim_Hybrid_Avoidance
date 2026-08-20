@@ -169,7 +169,10 @@ class ProjectAirSimClientWrapper:
     def get_velocity(self):
         r = self._request(self._drone_path() + "/GetGroundTruthKinematics", timeout=15)
         if "result" in r:
-            v = r["result"].get("linear_velocity", {})
+            # v2.1: UE ? KinematicsMessage ???? {"twist": {"linear": ...}}?core_sim json_utils.hpp??
+            # ???? linear_velocity ?? 0??? DRL state ? vx/vy ??????? 0
+            twist = r["result"].get("twist", {})
+            v = twist.get("linear") or r["result"].get("linear_velocity", {})
             return np.array([v.get("x", 0.0), v.get("y", 0.0), v.get("z", 0.0)])
         return np.zeros(3)
 

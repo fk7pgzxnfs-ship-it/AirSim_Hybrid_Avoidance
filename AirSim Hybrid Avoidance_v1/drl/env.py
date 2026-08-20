@@ -1,3 +1,4 @@
+﻿# -*- coding: utf-8 -*-
 """
 自定义 Gym 环境
 封装 AirSim 无人机避障任务的强化学习环境
@@ -21,7 +22,7 @@ class DroneEnv(gym.Env):
     def __init__(self, supervisor, config: dict):
         """
         Args:
-            supervisor: Supervisor 实例（提供client接口）
+            supervisor: Supervisor 实例（提供 client 接口）
             config: DRL 环境配置字典
         """
         super().__init__()
@@ -46,6 +47,7 @@ class DroneEnv(gym.Env):
         # 奖励系数
         self.reward_cfg = config.get('reward', {})
         self.step_count = 0
+        self._prev_action = None
 
     def reset(self, seed=None, options=None):
         """重置环境"""
@@ -58,6 +60,7 @@ class DroneEnv(gym.Env):
 
         self.step_count = 0
         self._prev_goal_dist = None
+        self._prev_action = None
         info = {}
 
         # 获取初始状态
@@ -79,6 +82,13 @@ class DroneEnv(gym.Env):
         # 裁剪动作
         action = np.clip(action, self.action_low, self.action_high)
 
+        # 动作变化量（用于平滑惩罚，v2.1）
+        if self._prev_action is not None:
+            action_change = float(np.linalg.norm(action - self._prev_action))
+        else:
+            action_change = 0.0
+        self._prev_action = action.copy()
+
         # 发送速度指令
         self.client.send_velocity(action[0], action[1], duration=0.3)
         sleep_step = self.cfg.get('sleep_step', 0.1)
@@ -98,7 +108,7 @@ class DroneEnv(gym.Env):
 
         # 计算奖励
         reward = self._compute_reward(
-            next_state, collided, goal_reached
+            next_state, collided, goal_reached, action_change
         )
 
         # 判断终止
@@ -145,7 +155,8 @@ class DroneEnv(gym.Env):
         return state
 
     def _compute_reward(self, state: np.ndarray,
-                        collided: bool, goal_reached: bool) -> float:
+                        collided: bool, goal_reached: bool,
+                        action_change: float = 0.0) -> float:
         """计算奖励"""
         if collided:
             return self.reward_cfg.get('collision_penalty', -50.0)
@@ -173,12 +184,22 @@ class DroneEnv(gym.Env):
             reward += self.reward_cfg.get('obstacle_penalty', -5.0) * \
                       (1.0 - nearest_dist / 3.0)
 
-        # 走廊边界惩罚：|y|>4.5 开始惩罚，迫使策略保持在板面内（UE 地面板 y∈[-5,5]）
+        # 走廊边界惩罚：|y|>4.5 开始惩罚，迫使策略保持在版面内（UE 地面范围 y∈[-5,5]）
         # state[1] = dy = goal_y - y（goal_y=0），故 |y| = |state[1]|
         corr_limit = self.reward_cfg.get('corridor_limit', 4.5)
         corr_pen = self.reward_cfg.get('corridor_penalty', 3.0)
         if abs(state[1]) > corr_limit:
             reward += -corr_pen * (abs(state[1]) - corr_limit)
+
+        # v2.1: 横向偏移惩罚（鼓励直线段贴中轴线，|y| 越大惩罚越大）
+        lateral_pen = self.reward_cfg.get('lateral_penalty', 0.0)
+        if lateral_pen > 0.0:
+            reward += -lateral_pen * abs(state[1])
+
+        # v2.1: 动作平滑惩罚（惩罚相邻动作突变，迫使策略输出平滑指令）
+        smooth_pen = self.reward_cfg.get('action_smooth_penalty', 0.0)
+        if smooth_pen > 0.0:
+            reward += -smooth_pen * action_change
 
         self._prev_goal_dist = current_dist
         return reward
