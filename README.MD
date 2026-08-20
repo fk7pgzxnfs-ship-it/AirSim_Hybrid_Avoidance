@@ -2,6 +2,8 @@
 
 > **使用说明**：[docs/USER_GUIDE.md](docs/USER_GUIDE.md)（从零开始的操作手册、命令参考与常见问题）
 
+> **v2.2（2026-08-21）**：新增统一入口 `main.py`——接上 UE 直接 `python main.py` 就能飞；散落脚本分类整理到 `scripts/`（fly / train / evaluate / diag / tools）。
+
 > **v2.1（2026-08-20）**：修复 DRL 直线段蛇形振荡（左扭右扭）。**纯算法层解决**（奖励塑形：动作平滑惩罚 + 横向偏移惩罚），部署端零改动、零动作滤波。UE 对齐评估：成功率 100%、碰撞 0%、直线段 y 波动 ±0.3m。版本记录见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 📋 项目简介
@@ -24,9 +26,9 @@ Supervisor（总控循环）
 - **训练（确定事实）**：1500 轮，最后 100 轮平均奖励 230.2，训练成功率 100%，耗时约 24.5 分钟（CPU）。
 - **UE 对齐评估（vel_tc=0.1，60 局随机布局，确定事实）**：成功率 100%（60/60）、碰撞率 0%、平均 166 步、`mean|Δaction|=0.124`、`action_y_std=0.612`、y 符号切换 5.1 次、路径/直线比 1.0312、y 跨度 4.857m。
 - **分段分析（确定事实）**：直线段（最近障碍 >8m）y 标准差 **0.30m**、y 跨度 **1.52m**；避障段 y 跨度 4.63m。轨迹图 `logs/train/traj_v21_fixed.png`：直线段 y 在 ±0.3m 内几乎无摆动、避障干脆。
-- **UE 实机复核（不确定信息）**：本轮未在 UE 实机重新飞行验证（UE 未运行）。v2.0 实机 7 次连续飞行干净的记录保留；v2.1 模型建议在 UE 上跑 `run_v2_demo.py --flights 3` 复核一次（见使用说明）。
+- **UE 实机复核（不确定信息）**：v2.1 模型在 UE 上的实机复核尚未最终完成（曾中断）；建议用 `python main.py --flights 3` 复核一次。
 
-## 🚀 快速开始（v2.1 / UE 5.7 实机）
+## 🚀 快速开始（v2.2 / UE 5.7 实机）
 ### 1. 安装依赖
 ```bash
 pip install -r requirements.txt
@@ -35,30 +37,33 @@ pip install -r requirements.txt
 ```powershell
 "D:\UE_5.7\Engine\Binaries\Win64\UnrealEditor.exe" "D:/ProjectAirSim-main/unreal/Blocks 5.7/Blocks.uproject" GISMap -game -windowed -ResX=1280 -ResY=720
 ```
-等待端口 **8990** 可连接（约 30–60s）。场景内容（地面 + 障碍物 + 无人机）由 `run_hybrid.py` / `run_v2_demo.py` 通过 LoadScene RPC 自动加载。
-### 3. 单次避障飞行
+等待端口 **8990** 可连接（约 30–60s）。场景内容（地面 + 障碍物 + 无人机）由脚本通过 LoadScene RPC 自动加载。
+### 3. 一键飞行（推荐，统一入口）
 ```bash
-python run_hybrid.py --goal_x 100 --goal_y 0 --max_steps 2000
+python main.py --flights 3   # 连续 3 次飞行 + 自动校验（PASS/FAIL）
+python main.py               # 交互菜单：1 单次 / 2 连续 / 3 评估 / 4 重训 / 5 检查连接 / 0 退出
+python main.py --check       # 检查 UE 连接
 ```
-默认每次飞行前先 **LoadScene 同配置热重载**（干净重建机器人，规避 SetPose 回弹，见 CHANGELOG v2.0）；`--no-reload` 可关闭。轨迹输出到 `logs/flights/flight_<时间戳>.csv`。
-### 4. 连续演示（N 次飞行 + 自动校验）
+- 每次飞行前自动 **LoadScene 同配置热重载**（干净重建机器人，规避 SetPose 回弹，见 CHANGELOG v2.0）；轨迹输出到 `logs/flights/flight_<时间戳>.csv`。
+- 需要更细控制时可调用底层脚本：
 ```bash
-python run_v2_demo.py --flights 3
+python scripts/fly/run_hybrid.py --goal_x 100 --goal_y 0 --max_steps 2000   # 单次飞行（--no-reload 可跳过重载）
+python scripts/fly/run_v2_demo.py --flights 3                                # 连续演示
 ```
-每次飞行自动：LoadScene → 闭环飞行 → 校验（到达终点 / 走廊内 / 高度保持 / 障碍碰撞 = 0），输出 PASS/FAIL 汇总。
-### 5. 训练 DRL 模型（如需重训）
+### 4. 训练 DRL 模型（如需重训）
 ```bash
-python train_drl_v2.py --episodes 1500   # 完整训练（约 25 分钟，CPU）
-python train_drl_v2.py --quick            # 冒烟测试
+python main.py --train                              # 完整训练（约 25 分钟，CPU）
+python scripts/train/train_drl_v2.py --quick        # 冒烟测试
 ```
-训练完成后自动做 60 次无探索评估（含 v2.1 平滑度指标）；最优模型写入 `models/drl_agent/ddpg_best.pth`。
-### 6. 平滑度评估与可视化（无需 UE，2D 仿真）
+训练完成后自动做 60 次无探索评估（含 v2.1 平滑度指标）；最优模型写入 `models/drl_agent/ddpg_best.pth`。重训前建议备份：`Copy-Item models\drl_agent\ddpg_best.pth models\drl_agent\ddpg_best_before_retrain.pth`。
+### 5. 平滑度评估与可视化（无需 UE，2D 仿真）
 ```bash
-python evaluate_smoothness.py --vel-tc 0.1 --n 60   # UE 对齐评估（成功率/碰撞/平滑度指标）
-python _analyze_segments.py                          # 直线段/避障段分段分析
-python _plot_traj.py                                 # 生成样例轨迹图 logs/train/traj_v21_fixed.png
+python main.py --eval                                        # UE 对齐评估（成功率/碰撞/平滑度指标）
+python scripts/evaluate/evaluate_smoothness.py --vel-tc 0.1 --n 60
+python scripts/evaluate/_analyze_segments.py                 # 直线段/避障段分段分析
+python scripts/evaluate/_plot_traj.py                        # 生成样例轨迹图 logs/train/traj_v21_fixed.png
 ```
-### 7. 轨迹可视化
+### 6. 轨迹可视化
 ```bash
 python experiments/visualize_trajectory.py --csv logs/flights/flight_xxx.csv
 ```
@@ -66,20 +71,22 @@ python experiments/visualize_trajectory.py --csv logs/flights/flight_xxx.csv
 ## 📁 项目结构
 ```
 AirSim Hybrid Avoidance/
-├── config/                    # 配置：default.yaml（主配置，v2.1 含平滑惩罚参数）、scene_v2_100x10.jsonc（v2 场景）
-├── airsim_interface/          # 通信层：projectairsim_client.py（UE RPC）、sensor_processor.py
-├── planning/                  # 传统规划：grid_map.py、a_star.py、potential_field.py
-├── drl/                       # DRL：env.py（v2.1 奖励塑形）、agent.py、trainer.py、models.py、sim_client.py（训练仿真）
-├── hybrid_controller/         # 混合控制器：supervisor.py、global_planner.py、local_planner.py、safety_monitor.py
-├── experiments/               # 实验：run_flight.py、visualize_trajectory.py、analyze_results.py
-├── logs/                      # 运行日志：flights/（轨迹 CSV）、train/（训练曲线 + 轨迹图）
-├── models/drl_agent/          # DRL 权重（ddpg_best.pth = v2.1b 最终模型；v2.0 备份 ddpg_v20_backup.pth）
-├── run_hybrid.py              # 单次闭环飞行入口
-├── run_v2_demo.py             # 连续演示入口（自动 LoadScene + 校验）
-├── train_drl_v2.py            # v2.1 DRL 训练入口
-├── evaluate_smoothness.py     # v2.1 平滑度评估（可指定 ckpt / vel_tc）
-├── _analyze_segments.py       # v2.1 直线段/避障段分段分析
-└── _plot_traj.py              # v2.1 轨迹可视化
+├── main.py                   # v2.2 统一入口（菜单 + 命令行直跑）
+├── config/                   # 配置：default.yaml（v2.1 含平滑惩罚参数）、scene_v2_100x10.jsonc（v2 场景）
+├── airsim_interface/         # 通信层：projectairsim_client.py（UE RPC）、sensor_processor.py
+├── planning/                 # 传统规划：grid_map.py、a_star.py、potential_field.py
+├── drl/                      # DRL：env.py（v2.1 奖励塑形）、agent.py、trainer.py、models.py、sim_client.py（训练仿真）
+├── hybrid_controller/        # 混合控制器：supervisor.py、global_planner.py、local_planner.py、safety_monitor.py
+├── experiments/              # 实验：run_flight.py、visualize_trajectory.py、analyze_results.py
+├── scripts/                  # v2.2 可执行脚本分类
+│   ├── fly/                  #   飞行：run_hybrid.py（单次）、run_v2_demo.py（连续演示 + 校验）
+│   ├── train/                #   训练：train_drl_v2.py、train_drl.py
+│   ├── evaluate/             #   评估分析：evaluate_smoothness.py、_analyze_segments.py、_plot_traj.py、_analyze_osc.py、evaluate.py
+│   ├── diag/                 #   诊断：_diag_*.py（UE 对接排障用）
+│   └── tools/                #   工具：test_drone.py、fly_straight.py、download_release.py
+├── logs/                     # 运行日志：flights/（轨迹 CSV）、train/（训练曲线 + 轨迹图）
+├── models/drl_agent/         # DRL 权重（ddpg_best.pth = v2.1b 最终模型；v2.0 备份 ddpg_v20_backup.pth）
+└── docs/                     # 文档：handover.md、USER_GUIDE.md
 ```
 
 ## 💡 关键实现说明
@@ -102,6 +109,7 @@ AirSim Hybrid Avoidance/
 ## 📜 版本历史
 | 版本 | 日期 | 里程碑 |
 |---|---|---|
+| v2.2 | 2026-08-21 | 统一入口 main.py（一键飞行/评估/重训）；脚本分类整理到 scripts/（fly/train/evaluate/diag/tools） |
 | v2.1 | 2026-08-20 | 修复 DRL 直线段蛇形振荡（纯算法层奖励塑形）；UE 对齐评估 100% 成功率/0 碰撞；直线段 y_std 0.30m |
 | v2.0 | 2026-08-19 | UE 实机闭环：DRL 100% 评估、100×10 走廊双障碍、7 次连续飞行干净、LoadScene 复位修复 |
 | v1.1 | 2026-08-03 | UE 5.7 对接打通："点 Play 不动"排查、地面板加长、起点复位 |

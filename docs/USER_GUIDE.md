@@ -1,7 +1,8 @@
-# AirSim Hybrid Avoidance v2.1 - 使用说明
+# AirSim Hybrid Avoidance v2.2 - 使用说明
 
-> 适用版本：v2.1（2026-08-20）。目标场景：100m×10m 走廊 + 双障碍物（x=30 / x=65）DRL 避障，UE 5.7 实机闭环。
-> v2.1 核心：**修复直线段蛇形振荡（纯算法层奖励塑形，部署端零改动）**。
+> 适用版本：v2.2（2026-08-21）。目标场景：100m×10m 走廊 + 双障碍物（x=30 / x=65）DRL 避障，UE 5.7 实机闭环。
+> v2.2 核心：**统一入口 `python main.py`**——接上 UE 直接跑，散落脚本分类到 `scripts/`（fly / train / evaluate / diag / tools）。
+> v2.1 核心：修复直线段蛇形振荡（纯算法层奖励塑形，部署端零改动）。
 > 配套文档：`README.md`（总览）、`CHANGELOG.md`（版本记录）、`docs/handover.md`（技术细节与根因分析）。
 
 ---
@@ -37,17 +38,19 @@ pip install -r requirements.txt
 Test-NetConnection 127.0.0.1 -Port 8990 | Select-Object TcpTestSucceeded
 ```
 
-### 步骤 3：单次避障飞行
+### 步骤 3：单次避障飞行（统一入口）
 ```bash
-python run_hybrid.py --goal_x 100 --goal_y 0 --max_steps 2000
+python main.py            # 交互菜单选 1
+python main.py --single   # 或命令行直跑
 ```
-- 脚本会自动：LoadScene 重载场景 → 复位到地面 → takeoff 爬升 → DRL 避障飞向终点 → 悬停保持。
+- 内部调用 `scripts/fly/run_hybrid.py --goal_x 100 --goal_y 0 --max_steps 2000`；脚本会自动：LoadScene 重载场景 → 复位到地面 → takeoff 爬升 → DRL 避障飞向终点 → 悬停保持。
 - 成功输出示例：`成功: True，步数 145，耗时 52.42s，路径长度 112.64m`。
 
 ### 步骤 4：连续演示（推荐，自动校验）
 ```bash
-python run_v2_demo.py --flights 3
+python main.py --flights 3   # 或交互菜单选 2
 ```
+- 内部调用 `scripts/fly/run_v2_demo.py --flights 3`。
 - 每次飞行前自动 LoadScene（规避 SetPose 回弹），飞行后自动校验并输出 PASS/FAIL：
   - 到达终点（x ≥ 97）
   - y 全程在走廊内（[-5.1, 5.1]）
@@ -57,14 +60,17 @@ python run_v2_demo.py --flights 3
 
 ### 步骤 5：平滑度复核（可选，无需 UE）
 ```bash
-# UE 对齐评估：成功率 / 碰撞 / 平滑度指标（60 局，约 1 分钟）
-python evaluate_smoothness.py --vel-tc 0.1 --n 60
+# 一键评估（UE 对齐：成功率 / 碰撞 / 平滑度指标，60 局，约 1 分钟）
+python main.py --eval
+
+# 底层脚本（等价）
+python scripts/evaluate/evaluate_smoothness.py --vel-tc 0.1 --n 60
 
 # 直线段 / 避障段分段分析（看直线段 y 波动是否够小）
-python _analyze_segments.py
+python scripts/evaluate/_analyze_segments.py
 
 # 生成样例轨迹图 logs/train/traj_v21_fixed.png
-python _plot_traj.py
+python scripts/evaluate/_plot_traj.py
 ```
 - 直线段（最近障碍 >8m）健康值：`y_std` ≤ 0.5m、`y_span` ≤ 2m。当前 v2.1b 模型：`y_std=0.30m`、`y_span=1.52m`。
 
@@ -83,20 +89,24 @@ python experiments/visualize_trajectory.py --csv logs/flights/flight_xxx.csv
 ### 3.1 飞行
 | 命令 | 说明 |
 |---|---|
-| `python run_hybrid.py --goal_x 100 --goal_y 0 --max_steps 2000` | 单次闭环飞行（默认先 LoadScene） |
-| `--no-reload` | 跳过飞行前的 LoadScene（不推荐连续使用，见 FAQ 3） |
-| `python run_v2_demo.py --flights 3` | 连续 3 次飞行 + 自动校验 |
-| `python run_v2_demo.py --flights 5 --goal_x 100` | 自定义飞行次数/目标 |
+| `python main.py` | 交互菜单（1 单次 / 2 连续 / 3 评估 / 4 重训 / 5 检查连接 / 0 退出） |
+| `python main.py --single` | 单次闭环飞行（内部调 scripts/fly/run_hybrid.py） |
+| `python main.py --flights 3` | 连续 3 次飞行 + 自动校验（内部调 scripts/fly/run_v2_demo.py） |
+| `python scripts/fly/run_hybrid.py --goal_x 100 --goal_y 0 --max_steps 2000` | 底层单次飞行（默认先 LoadScene） |
+| `python scripts/fly/run_hybrid.py --no-reload` | 跳过飞行前的 LoadScene（不推荐连续使用，见 FAQ 3） |
+| `python scripts/fly/run_v2_demo.py --flights 5 --goal_x 100` | 底层自定义飞行次数/目标 |
 
 ### 3.2 训练与评估
 | 命令 | 说明 |
 |---|---|
-| `python train_drl_v2.py --episodes 1500` | 完整训练（约 25 分钟，CPU；`--tag` 默认 `v21b`） |
-| `python train_drl_v2.py --episodes 1500 --tag mytag` | 自定义输出标签（rewards_<tag>.npy） |
-| `python train_drl_v2.py --quick` | 冒烟测试（几十轮验证链路） |
-| `python evaluate_smoothness.py --vel-tc 0.1 --n 60` | v2.1 平滑度评估（UE 对齐动态） |
-| `python evaluate_smoothness.py --ckpt models/drl_agent/ddpg_v20_backup.pth --vel-tc 0.1` | 对比其他 ckpt |
-| `python evaluate.py` | 批量评估入口（旧版，2D 模式） |
+| `python main.py --train` | 完整训练（约 25 分钟，CPU；内部调 scripts/train/train_drl_v2.py） |
+| `python main.py --eval` | 一键平滑度评估（60 局，无需 UE） |
+| `python scripts/train/train_drl_v2.py --episodes 1500` | 完整训练（`--tag` 默认 `v21b`） |
+| `python scripts/train/train_drl_v2.py --episodes 1500 --tag mytag` | 自定义输出标签（rewards_<tag>.npy） |
+| `python scripts/train/train_drl_v2.py --quick` | 冒烟测试（几十轮验证链路） |
+| `python scripts/evaluate/evaluate_smoothness.py --vel-tc 0.1 --n 60` | v2.1 平滑度评估（UE 对齐动态） |
+| `python scripts/evaluate/evaluate_smoothness.py --ckpt models/drl_agent/ddpg_v20_backup.pth --vel-tc 0.1` | 对比其他 ckpt |
+| `python scripts/evaluate/evaluate.py` | 批量评估入口（旧版，2D 模式） |
 
 > 训练完成后自动做 60 次无探索随机布局评估并打印成功率与平滑度指标；最优模型写入 `models/drl_agent/ddpg_best.pth`。
 > `--vel-tc` 是评估用的速度惯性时间常数：UE fast-physics 行为接近 `0.1`（直接执行目标速度），训练动态为 `0.5`。用 `0.1` 评估更贴近部署表现。
@@ -104,8 +114,8 @@ python experiments/visualize_trajectory.py --csv logs/flights/flight_xxx.csv
 ### 3.3 可视化与分析
 | 命令 | 说明 |
 |---|---|
-| `python _analyze_segments.py` | 直线段/避障段分段统计（y_std、y_span、y 符号切换） |
-| `python _plot_traj.py` | 生成样例轨迹图（3 面板：轨迹 / y 放大 / action_y） |
+| `python scripts/evaluate/_analyze_segments.py` | 直线段/避障段分段统计（y_std、y_span、y 符号切换） |
+| `python scripts/evaluate/_plot_traj.py` | 生成样例轨迹图（3 面板：轨迹 / y 放大 / action_y） |
 | `python experiments/visualize_trajectory.py --csv <文件>` | 单条飞行轨迹图 |
 | `python experiments/visualize.py --mode 3d --log <文件>` | 旧版可视化入口 |
 
@@ -173,7 +183,7 @@ Select-String -Path "D:\ProjectAirSim-main\unreal\Blocks 5.7\Saved\Logs\Blocks.l
 - 端口被占用：杀掉旧 UE 进程后重启。
 
 ### 2. "点了 Play 之后无人机在原地不动"
-- UE 点 Play 后无人机**不会自动起飞**，必须运行 `run_hybrid.py` / `run_v2_demo.py` 发指令。
+- UE 点 Play 后无人机**不会自动起飞**，必须运行 `main.py`（内部调用 `scripts/fly/run_hybrid.py` / `scripts/fly/run_v2_demo.py`）发指令。
 - 若脚本也表现为"不动"：模拟时钟可能很慢（PIE 启动初期 0.15x~1.6x），MoveByVelocity 是同步阻塞 RPC，多等几秒观察；避免 UE 窗口失焦/最小化。
 
 ### 3. 连续飞行时第 2 次出现"position_jump"中止
@@ -212,18 +222,18 @@ Select-String -Path "D:\ProjectAirSim-main\unreal\Blocks 5.7\Saved\Logs\Blocks.l
 # 2. 等端口就绪
 Test-NetConnection 127.0.0.1 -Port 8990 | Select-Object TcpTestSucceeded
 
-# 3. 单次飞行
-python run_hybrid.py --goal_x 100 --goal_y 0 --max_steps 2000
+# 3. 一键飞行（交互菜单或命令行直跑）
+python main.py
+python main.py --flights 3
 
-# 4. 连续演示（自动校验）
-python run_v2_demo.py --flights 3
+# 4. 检查 UE 连接
+python main.py --check
 
 # 5. 平滑度复核（无需 UE）
-python evaluate_smoothness.py --vel-tc 0.1 --n 60
-python _analyze_segments.py
+python main.py --eval
 
 # 6. 训练（如需重训）
-python train_drl_v2.py --episodes 1500
+python main.py --train
 
 # 7. 轨迹可视化
 python experiments/visualize_trajectory.py --csv logs/flights/flight_<时间戳>.csv

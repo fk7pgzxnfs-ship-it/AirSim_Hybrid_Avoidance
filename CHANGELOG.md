@@ -2,6 +2,26 @@
 
 版本记录遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 风格。日期依据 `docs/handover.md` 与文件时间戳（确定事实）。
 
+## [v2.2] - 2026-08-21
+### 里程碑
+新增统一入口 main.py：接上 UE 后直接 python main.py 即可飞行/评估/重训/查连接；散落脚本分类整理到 scripts/ 子目录（fly / train / evaluate / diag / tools），根目录只保留 main.py 与模块目录。
+
+### 新增
+- 统一入口 main.py（项目根）：交互菜单（1 单次飞行 / 2 连续飞行 / 3 平滑度评估 / 4 重训 / 5 检查连接 / 0 退出），启动时自动检测 UE 8990 端口；支持命令行直跑 --flights N / --single / --eval / --train / --check。
+- 脚本分类：scripts/fly/（run_hybrid.py、run_v2_demo.py）、scripts/train/（train_drl_v2.py、train_drl.py）、scripts/evaluate/（evaluate.py、evaluate_smoothness.py、_analyze_osc.py、_analyze_segments.py、_plot_traj.py）、scripts/diag/（_diag_*.py 共 8 个）、scripts/tools/（test_drone.py、fly_straight.py、download_release.py、_gen_handover.py）。
+
+### 修复
+- 8 个需 import 的脚本 sys.path.insert 修正为指向项目根（os.path.dirname 上溯三层），旧路径在目录迁移后失效。
+- scripts/tools/fly_straight.py 第 3 行历史损坏的 docstring 引号修复（"" 改为 """）。
+
+### 变更
+- README 重写为 v2.2（统一入口 + 新项目结构 + 命令参考）；USER_GUIDE 同步更新。
+- 全部 21 个脚本 py_compile 通过；main.py --check 与 --eval（60 局）实测通过。
+
+### 说明
+- v2.2 不改变算法与模型：v2.1b 模型与 v2.1 平滑方案保持不变，仅统一操作入口与目录结构。
+- UE 实机复核（不确定信息）：v2.1 模型在 UE 实机上的复核仍未最终完成；可用 python main.py --flights 3 复核。
+
 ## [v2.1] - 2026-08-20
 ### 里程碑
 修复 v2.0 DRL 策略在直线段的蛇形振荡（左扭右扭）。**纯算法层解决**（奖励塑形），部署端零改动、无动作滤波。UE 对齐评估（vel_tc=0.1）：成功率 100%、碰撞 0%、直线段 y 标准差 0.30m。
