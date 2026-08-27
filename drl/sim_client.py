@@ -19,7 +19,10 @@ class KinematicSimClient:
 
     def __init__(self, obstacles=None, start=(0.0, 0.0, -12.0),
                  lidar_range=35.0, max_speed=3.0, vel_time_constant=0.5,
-                 obstacle_jitter=1.5, noise_std=0.05, seed=42):
+                 obstacle_jitter=1.5, noise_std=0.05, seed=42,
+                 bounds=None):
+        # 地图边界 (x_min, x_max, y_min, y_max)；v3 从场景传入，默认兼容 v2 100x10
+        self.bounds = bounds if bounds is not None else (-1.0, 101.0, -5.0, 5.0)
         # 基础障碍物 [x, y, 碰撞半径]
         self.base_obstacles = [(float(o[0]), float(o[1]), float(o[2]))
                                for o in (obstacles or [(30.0, 0.0, 1.0), (65.0, 0.0, 1.0)])]
@@ -48,8 +51,9 @@ class KinematicSimClient:
         for ox, oy, r in self.base_obstacles:
             jx = self.rng.uniform(-self.obstacle_jitter, self.obstacle_jitter)
             jy = self.rng.uniform(-self.obstacle_jitter, self.obstacle_jitter)
-            nx = min(max(ox + jx, 5.0), 95.0)
-            ny = min(max(oy + jy, -3.0), 3.0)
+            bx_min, bx_max, by_min, by_max = self.bounds
+            nx = self._clamp(ox + jx, bx_min + 5.0, bx_max - 5.0)
+            ny = self._clamp(oy + jy, by_min + 2.0, by_max - 2.0)
             new.append((nx, ny, r))
         self.obstacles = new
 
@@ -96,8 +100,9 @@ class KinematicSimClient:
         if abs(self._vel[0]) > 0.05 or abs(self._vel[1]) > 0.05:
             self._yaw = math.atan2(self._vel[1], self._vel[0])
         # 更新偏航
-        self._pos[1] = np.clip(self._pos[1], -5.0, 5.0)
-        self._pos[0] = np.clip(self._pos[0], -1.0, 101.0)
+        bx_min, bx_max, by_min, by_max = self.bounds
+        self._pos[1] = np.clip(self._pos[1], by_min, by_max)
+        self._pos[0] = np.clip(self._pos[0], bx_min - 1.0, bx_max + 1.0)
         self._collided = self.get_collision_info()
         return True
 
@@ -116,6 +121,13 @@ class KinematicSimClient:
         self._pos[2] = 0.0
         self._vel[:] = 0.0
         return True
+
+    @staticmethod
+    def _clamp(v, lo, hi):
+        """安全限幅（lo>hi 时返回中点，避免窄地图反转）"""
+        if lo >= hi:
+            return (lo + hi) / 2.0
+        return min(max(v, lo), hi)
 
     def reset_position(self, x, y, z):
         self._randomize_obstacles()

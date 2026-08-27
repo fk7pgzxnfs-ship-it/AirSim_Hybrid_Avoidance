@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AirSim v3 控制台</title>
+<style>
+  :root {
+    --bg: #f3f3f3; --card: #ffffff; --text: #1b1b1b; --sub: #6e6e6e;
+    --accent: #0067c0; --accent-hover: #005ba8; --border: #e0e0e0;
+    --ok: #0f7b0f; --bad: #c42b1c; --log-bg: #1e1e1e; --log-fg: #d4d4d4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #202020; --card: #2b2b2b; --text: #f2f2f2; --sub: #9d9d9d;
+      --accent: #4cc2ff; --accent-hover: #79d0ff; --border: #3d3d3d;
+      --ok: #6ccb5f; --bad: #ff99a0; --log-bg: #141414;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", sans-serif;
+    background: var(--bg); color: var(--text);
+    min-height: 100vh; padding: 16px;
+  }
+  .topbar {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 18px; margin-bottom: 14px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.06);
+  }
+  .topbar h1 { font-size: 17px; font-weight: 600; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 12.5px; color: var(--sub);
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 20px; padding: 4px 12px;
+  }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--sub); }
+  .dot.ok { background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 22%, transparent); }
+  .dot.bad { background: var(--bad); box-shadow: 0 0 0 3px color-mix(in srgb, var(--bad) 22%, transparent); }
+  .wrap { display: grid; grid-template-columns: 330px 1fr; gap: 14px; }
+  @media (max-width: 900px) { .wrap { grid-template-columns: 1fr; } }
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,.06);
+    margin-bottom: 14px;
+  }
+  .card h2 {
+    font-size: 13px; font-weight: 600; color: var(--sub);
+    text-transform: uppercase; letter-spacing: .4px; margin-bottom: 12px;
+  }
+  .btn {
+    font-family: inherit; font-size: 13.5px; color: var(--text);
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 7px; padding: 9px 14px; cursor: pointer;
+    transition: background .12s, border-color .12s;
+    width: 100%; margin-bottom: 8px; text-align: left;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .btn:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 8%, var(--card)); border-color: var(--accent); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); justify-content: center; }
+  .btn.primary:hover:not(:disabled) { background: var(--accent-hover); }
+  .btn.danger { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 45%, var(--border)); justify-content: center; }
+  .btn .hint { color: var(--sub); font-size: 11.5px; }
+  .btn.primary .hint { color: rgba(255,255,255,.8); }
+  select, input {
+    font-family: inherit; font-size: 13px; color: var(--text);
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 7px; padding: 8px 10px; width: 100%; margin-bottom: 8px;
+  }
+  .row { display: flex; gap: 8px; }
+  .row select { margin-bottom: 12px; }
+  .row input { width: 64px; margin-bottom: 12px; }
+  .logbox {
+    background: var(--log-bg); border-radius: 10px;
+    font-family: "Cascadia Code", Consolas, monospace; font-size: 12px;
+    color: var(--log-fg); padding: 14px; height: calc(100vh - 130px);
+    overflow-y: auto; white-space: pre-wrap; word-break: break-all;
+    line-height: 1.55;
+  }
+  .logbox .done { color: #6ccb5f; }
+  .logbox .err { color: #ff99a0; }
+  .logbox .sep { color: #5a5a5a; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <h1>AirSim Hybrid Avoidance 控制台</h1>
+  <span class="pill"><span id="ueDot" class="dot"></span>UE <span id="ueText">检测中</span></span>
+  <span class="pill">场景 <span id="sceneText">-</span></span>
+  <span class="pill" id="taskPill" style="display:none">运行中: <span id="taskLabel"></span></span>
+</div>
+<div class="wrap">
+  <div>
+    <div class="card">
+      <h2>场景</h2>
+      <select id="sceneSel"></select>
+      <button class="btn" id="btnRefresh">刷新列表 <span class="hint">↻</span></button>
+      <button class="btn" id="btnEditor">打开网页编辑器 <span class="hint">新标签页</span></button>
+    </div>
+    <div class="card">
+      <h2>飞行（需 UE）</h2>
+      <button class="btn primary" id="btnSingle">单次避障飞行</button>
+      <div class="row">
+        <select id="flightMode">
+          <option value="flights" selected>连续飞行（自动校验）</option>
+          <option value="single">单次飞行</option>
+        </select>
+        <input type="number" id="flightN" value="3" min="1" max="20" title="次数">
+      </div>
+      <button class="btn" id="btnFlights">开始 <span class="hint">FLIGHTS</span></button>
+    </div>
+    <div class="card">
+      <h2>训练与评估（无需 UE）</h2>
+      <button class="btn" id="btnEval">平滑度评估 <span class="hint">60 局</span></button>
+      <button class="btn" id="btnTrain">重新训练模型 <span class="hint">覆盖 ddpg_best.pth</span></button>
+    </div>
+    <div class="card">
+      <h2>系统</h2>
+      <button class="btn" id="btnStop">停止当前任务</button>
+      <button class="btn" id="btnCheck">检查 UE 连接</button>
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:0">
+    <h2>日志</h2>
+    <div class="logbox" id="logbox"></div>
+  </div>
+</div>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+let scenes = [];
+let since = 0;
+let busy = false;
+const S = {
+  single: "scripts/fly/run_hybrid.py",
+  flights: "scripts/fly/run_v2_demo.py",
+  eval: "scripts/evaluate/evaluate_smoothness.py",
+  train: "scripts/train/train_drl_v2.py",
+};
+
+async function api(path, opts) {
+  const r = await fetch(path, opts);
+  return r.json();
+}
+function sceneArg() {
+  const v = $("sceneSel").value;
+  return v ? v : "";
+}
+function log(text, cls) {
+  const box = $("logbox");
+  const div = document.createElement("div");
+  if (cls) div.className = cls;
+  div.textContent = text;
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+}
+
+async function loadScenes() {
+  const d = await api("/api/scenes");
+  scenes = d.scenes || [];
+  const sel = $("sceneSel");
+  const prev = sel.value;
+  sel.innerHTML = "";
+  scenes.forEach((n) => {
+    const op = document.createElement("option");
+    op.value = n; op.textContent = n;
+    sel.appendChild(op);
+  });
+  if (prev && scenes.includes(prev)) sel.value = prev;
+  else if (scenes.length) sel.value = scenes[0];
+  $("sceneText").textContent = sel.value || "默认 100x10";
+}
+
+async function poll() {
+  const st = await api("/api/status");
+  // UE 状态
+  const ueDot = $("ueDot");
+  ueDot.className = "dot " + (st.ue ? "ok" : "bad");
+  $("ueText").textContent = st.ue ? "已连接" : "未连接";
+  // 任务状态
+  busy = st.running;
+  const pill = $("taskPill");
+  if (st.running) { pill.style.display = "inline-flex"; $("taskLabel").textContent = st.label; }
+  else if (st.code !== null) {
+    pill.style.display = "inline-flex";
+    $("taskLabel").textContent = "已完成 (退出码 " + st.code + ")";
+    setTimeout(() => { pill.style.display = "none"; }, 6000);
+  } else pill.style.display = "none";
+  // 日志增量
+  if (st.log_len > since) {
+    const lg = await api("/api/log?since=" + since);
+    since = lg.total;
+    (lg.lines || []).forEach((l) => {
+      let cls = "";
+      if (l.startsWith("=")) cls = "sep";
+      else if (/成功|PASS|退出码 0|EVAL/.test(l)) cls = "done";
+      else if (/失败|FAIL|错误|ERROR|异常|Traceback/.test(l)) cls = "err";
+      log(l, cls);
+    });
+  }
+  setBusy(busy);
+}
+function setBusy(b) {
+  ["btnSingle","btnFlights","btnEval","btnTrain"].forEach((id) => $(id).disabled = b);
+}
+
+async function run(script, args, label) {
+  await api("/api/run", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ script, args, label })
+  });
+  since = 0;
+}
+
+$("btnSingle").onclick = () => {
+  const sc = sceneArg();
+  const args = sc ? ["--scene", sc, "--max_steps", "2000"]
+                  : ["--goal_x", "100", "--goal_y", "0", "--max_steps", "2000"];
+  run(S.single, args, "单次避障飞行");
+};
+$("btnFlights").onclick = () => {
+  const mode = $("flightMode").value;
+  const sc = sceneArg();
+  if (mode === "single") { $("btnSingle").click(); return; }
+  const n = parseInt($("flightN").value) || 3;
+  const args = ["--flights", String(n)];
+  if (sc) args.push("--scene", sc);
+  run(S.flights, args, "连续飞行 " + n + " 次（自动校验）");
+};
+$("btnEval").onclick = () => {
+  const sc = sceneArg();
+  const args = ["--vel-tc", "0.1", "--n", "60"];
+  if (sc) args.push("--scene", sc);
+  run(S.eval, args, "平滑度评估 60 局（无需 UE）");
+};
+$("btnTrain").onclick = () => {
+  if (!confirm("确认重训？会覆盖 models/drl_agent/ddpg_best.pth")) return;
+  const sc = sceneArg();
+  const args = ["--episodes", "1500"];
+  if (sc) args.push("--scene", sc);
+  run(S.train, args, "重新训练 DRL 模型（会覆盖 ddpg_best.pth）");
+};
+$("btnStop").onclick = async () => {
+  const r = await api("/api/stop", { method: "POST" });
+  if (!r.ok) log("[停止] " + (r.error || "无任务"), "err");
+};
+$("btnRefresh").onclick = loadScenes;
+$("btnCheck").onclick = async () => {
+  const st = await api("/api/status");
+  log("UE 连接: " + (st.ue ? "正常（端口 8990）" : "未连接"), st.ue ? "done" : "err");
+};
+$("btnEditor").onclick = () => window.open("/", "_blank");
+$("sceneSel").onchange = () => { $("sceneText").textContent = $("sceneSel").value || "默认 100x10"; };
+
+loadScenes();
+poll();
+setInterval(poll, 900);
+</script>
+</body>
+</html>

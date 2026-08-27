@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>AirSim v3 场景编辑器</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: "Microsoft YaHei", sans-serif; margin: 0; background: #f5f6f8; color: #222; }
+  #wrap { display: flex; height: 100vh; }
+  #side { width: 340px; background: #fff; border-right: 1px solid #ddd; padding: 12px; overflow-y: auto; }
+  #main { flex: 1; display: flex; flex-direction: column; }
+  #toolbar { background: #fff; border-bottom: 1px solid #ddd; padding: 8px 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  #canvas { flex: 1; }
+  h1 { font-size: 16px; margin: 0 0 10px; }
+  h2 { font-size: 13px; margin: 14px 0 6px; border-bottom: 1px solid #eee; padding-bottom: 4px; color: #444; }
+  label { font-size: 12px; color: #666; display: block; margin-top: 6px; }
+  input[type=number], input[type=text] { width: 100%; padding: 4px 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; }
+  .row { display: flex; gap: 6px; }
+  .row > div { flex: 1; }
+  button { padding: 6px 12px; border: 1px solid #aaa; background: #fff; border-radius: 4px; cursor: pointer; font-size: 13px; }
+  button.primary { background: #2d6cdf; color: #fff; border-color: #2d6cdf; }
+  button.danger { color: #c33; border-color: #c66; }
+  .obs-item { border: 1px solid #e0e0e0; border-radius: 6px; padding: 8px; margin-top: 8px; background: #fafbfc; }
+  .obs-item.selected { border-color: #2d6cdf; box-shadow: 0 0 0 2px rgba(45,108,223,.15); }
+  .obs-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+  .obs-head b { font-size: 12px; }
+  .hint { font-size: 12px; color: #888; margin-top: 8px; line-height: 1.6; }
+  #status { font-size: 12px; color: #2a7; margin-left: 8px; }
+  #status.err { color: #c33; }
+  select { padding: 4px 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="side">
+    <h1>AirSim v3 场景编辑器</h1>
+    <label>场景文件</label>
+    <div class="row">
+      <div><select id="sceneSel"></select></div>
+      <button id="btnLoad">加载</button>
+      <button id="btnNew">新建</button>
+    </div>
+    <h2>地图</h2>
+    <div class="row">
+      <div><label>x_min</label><input type="number" id="x_min" step="1"></div>
+      <div><label>x_max</label><input type="number" id="x_max" step="1"></div>
+    </div>
+    <div class="row">
+      <div><label>y_min</label><input type="number" id="y_min" step="1"></div>
+      <div><label>y_max</label><input type="number" id="y_max" step="1"></div>
+    </div>
+    <div class="row">
+      <div><label>分辨率(m)</label><input type="number" id="resolution" step="0.1" value="0.5"></div>
+      <div><label>巡航高度</label><input type="number" id="takeoff_height" step="0.5" value="-12"></div>
+    </div>
+    <h2>起点 / 终点（画布上可直接拖拽）</h2>
+    <div class="row">
+      <div><label>起点 x</label><input type="number" id="sx" step="0.5"></div>
+      <div><label>起点 y</label><input type="number" id="sy" step="0.5"></div>
+    </div>
+    <div class="row">
+      <div><label>终点 x</label><input type="number" id="gx" step="0.5"></div>
+      <div><label>终点 y</label><input type="number" id="gy" step="0.5"></div>
+    </div>
+    <h2>障碍物（红色矩形，可拖拽）</h2>
+    <div id="obsList"></div>
+    <div style="margin-top:10px">
+      <button id="btnAddObs">+ 添加障碍物</button>
+    </div>
+    <div style="margin-top:14px; display:flex; gap:8px;">
+      <button class="primary" id="btnSave">保存</button>
+      <button id="btnCheck">可达性检查</button>
+    </div>
+    <div id="status"></div>
+    <div class="hint">
+      操作：拖拽红框移动障碍物，拖拽绿点/橙星移动起终点；双击画布空白处添加障碍物；点击障碍物选中后在列表改尺寸。<br>
+      保存前建议先做可达性检查（A*）。
+    </div>
+  </div>
+  <div id="main">
+    <div id="toolbar">
+      <b>场景: </b><span id="sceneName">未命名</span>
+      <span id="msg"></span>
+    </div>
+    <canvas id="canvas"></canvas>
+  </div>
+</div>
+<script>
+"use strict";
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+let scene = {
+  id: "MyScene",
+  map: { x_min: 0, x_max: 100, y_min: -5, y_max: 5, resolution: 0.5 },
+  start: [0, 0], goal: [100, 0],
+  takeoff_height: -12,
+  route: { mode: "line" },
+  obstacles: []
+};
+let sceneName = "未命名";
+let selectedObs = null;
+let drag = null; // {type:'obs'|'start'|'goal', idx}
+
+function resize() {
+  const r = canvas.parentElement.getBoundingClientRect();
+  canvas.width = r.width - 2; canvas.height = r.height - 2;
+  draw();
+}
+window.addEventListener("resize", resize);
+
+function worldToScreen(x, y) {
+  const pad = 40;
+  const xr = scene.map.x_max - scene.map.x_min;
+  const yr = scene.map.y_max - scene.map.y_min;
+  const scale = Math.min((canvas.width - 2*pad) / xr, (canvas.height - 2*pad) / yr);
+  const cx = canvas.width / 2, cy = canvas.height / 2;
+  const mx = (scene.map.x_min + scene.map.x_max) / 2;
+  const my = (scene.map.y_min + scene.map.y_max) / 2;
+  return [cx + (x - mx) * scale, cy - (y - my) * scale, scale];
+}
+
+function screenToWorld(px, py) {
+  const r = worldToScreen(0, 0);
+  const scale = r[2], cx = canvas.width / 2, cy = canvas.height / 2;
+  const mx = (scene.map.x_min + scene.map.x_max) / 2;
+  const my = (scene.map.y_min + scene.map.y_max) / 2;
+  return [(px - cx) / scale + mx, (cy - py) / scale + my];
+}
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#fafbfc";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  const r = worldToScreen(0, 0);
+  const scale = r[2];
+  const [x0, y0] = worldToScreen(scene.map.x_min, scene.map.y_max);
+  const [x1, y1] = worldToScreen(scene.map.x_max, scene.map.y_min);
+  // 地图边界
+  ctx.strokeStyle = "#333"; ctx.lineWidth = 2;
+  ctx.strokeRect(x0, y0, x1 - x0, y1 - y0);
+  // 网格 5m
+  ctx.strokeStyle = "#e2e2e2"; ctx.lineWidth = 1;
+  for (let gx = Math.ceil(scene.map.x_min/5)*5; gx <= scene.map.x_max; gx += 5) {
+    const [ax, ay] = worldToScreen(gx, scene.map.y_min);
+    const [bx, by] = worldToScreen(gx, scene.map.y_max);
+    ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
+  }
+  for (let gy = Math.ceil(scene.map.y_min/5)*5; gy <= scene.map.y_max; gy += 5) {
+    const [ax, ay] = worldToScreen(scene.map.x_min, gy);
+    const [bx, by] = worldToScreen(scene.map.x_max, gy);
+    ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
+  }
+  // 直线路线
+  ctx.strokeStyle = "#2d6cdf"; ctx.lineWidth = 2; ctx.setLineDash([8, 6]);
+  const [sx0, sy0] = worldToScreen(scene.start[0], scene.start[1]);
+  const [gx0, gy0] = worldToScreen(scene.goal[0], scene.goal[1]);
+  ctx.beginPath(); ctx.moveTo(sx0, sy0); ctx.lineTo(gx0, gy0); ctx.stroke();
+  ctx.setLineDash([]);
+  // 障碍物
+  scene.obstacles.forEach(function(o, i) {
+    const [ox, oy] = worldToScreen(o.x - o.w/2, o.y - o.h/2);
+    const [ox2, oy2] = worldToScreen(o.x + o.w/2, o.y + o.h/2);
+    ctx.fillStyle = (selectedObs === i) ? "#ff5a5a" : "#e5484d";
+    ctx.strokeStyle = "#8f1d1d";
+    ctx.lineWidth = (selectedObs === i) ? 3 : 1.5;
+    ctx.fillRect(ox, oy, ox2 - ox, oy2 - oy);
+    ctx.strokeRect(ox, oy, ox2 - ox, oy2 - oy);
+    ctx.fillStyle = "#fff";
+    ctx.font = Math.max(11, 12 * scale / 6) + "px sans-serif";
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(o.name, (ox + ox2)/2, (oy + oy2)/2);
+  });
+  // 起点
+  ctx.fillStyle = "#22a04b"; ctx.beginPath(); ctx.arc(sx0, sy0, 9, 0, 2*Math.PI); ctx.fill();
+  ctx.fillStyle = "#fff"; ctx.font = "10px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText("S", sx0, sy0);
+  // 终点
+  ctx.fillStyle = "#e8930c"; ctx.beginPath(); ctx.arc(gx0, gy0, 11, 0, 2*Math.PI); ctx.fill();
+  ctx.fillStyle = "#fff"; ctx.font = "10px sans-serif"; ctx.fillText("G", gx0, gy0);
+}
+
+function hitTest(px, py) {
+  const [wx, wy] = screenToWorld(px, py);
+  // 起点/终点优先（小半径）
+  if (Math.hypot(wx - scene.start[0], wy - scene.start[1]) * scaleAt() < 12) return {type: "start"};
+  if (Math.hypot(wx - scene.goal[0], wy - scene.goal[1]) * scaleAt() < 12) return {type: "goal"};
+  for (let i = scene.obstacles.length - 1; i >= 0; i--) {
+    const o = scene.obstacles[i];
+    if (Math.abs(wx - o.x) <= o.w/2 && Math.abs(wy - o.y) <= o.h/2) return {type: "obs", idx: i};
+  }
+  return null;
+}
+function scaleAt() { return worldToScreen(0, 0)[2]; }
+
+canvas.addEventListener("mousedown", function(e) {
+  const rect = canvas.getBoundingClientRect();
+  const px = e.clientX - rect.left, py = e.clientY - rect.top;
+  const hit = hitTest(px, py);
+  if (hit && hit.type === "obs") { selectedObs = hit.idx; syncPanel(); draw(); }
+  if (hit) { drag = hit; canvas.style.cursor = "grabbing"; }
+});
+canvas.addEventListener("mousemove", function(e) {
+  const rect = canvas.getBoundingClientRect();
+  const px = e.clientX - rect.left, py = e.clientY - rect.top;
+  if (!drag) {
+    const hit = hitTest(px, py);
+    canvas.style.cursor = hit ? "pointer" : "default";
+    return;
+  }
+  const [wx, wy] = screenToWorld(px, py);
+  if (drag.type === "start") { scene.start = [wx, wy]; }
+  else if (drag.type === "goal") { scene.goal = [wx, wy]; }
+  else if (drag.type === "obs") {
+    const o = scene.obstacles[drag.idx];
+    o.x = wx; o.y = wy;
+  }
+  syncPanel(); draw();
+});
+canvas.addEventListener("mouseup", function() { drag = null; });
+canvas.addEventListener("dblclick", function(e) {
+  const rect = canvas.getBoundingClientRect();
+  const [wx, wy] = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+  const o = { name: "Obstacle" + (scene.obstacles.length + 1), x: Math.round(wx*10)/10, y: Math.round(wy*10)/10, w: 2, h: 2, height: 14 };
+  scene.obstacles.push(o);
+  selectedObs = scene.obstacles.length - 1;
+  syncPanel(); draw();
+});
+
+function syncPanel() {
+  document.getElementById("x_min").value = scene.map.x_min;
+  document.getElementById("x_max").value = scene.map.x_max;
+  document.getElementById("y_min").value = scene.map.y_min;
+  document.getElementById("y_max").value = scene.map.y_max;
+  document.getElementById("resolution").value = scene.map.resolution;
+  document.getElementById("takeoff_height").value = scene.takeoff_height;
+  document.getElementById("sx").value = scene.start[0];
+  document.getElementById("sy").value = scene.start[1];
+  document.getElementById("gx").value = scene.goal[0];
+  document.getElementById("gy").value = scene.goal[1];
+  renderObsList();
+}
+function readPanel() {
+  scene.map.x_min = parseFloat(document.getElementById("x_min").value);
+  scene.map.x_max = parseFloat(document.getElementById("x_max").value);
+  scene.map.y_min = parseFloat(document.getElementById("y_min").value);
+  scene.map.y_max = parseFloat(document.getElementById("y_max").value);
+  scene.map.resolution = parseFloat(document.getElementById("resolution").value);
+  scene.takeoff_height = parseFloat(document.getElementById("takeoff_height").value);
+  scene.start = [parseFloat(document.getElementById("sx").value), parseFloat(document.getElementById("sy").value)];
+  scene.goal = [parseFloat(document.getElementById("gx").value), parseFloat(document.getElementById("gy").value)];
+}
+function renderObsList() {
+  const box = document.getElementById("obsList");
+  box.innerHTML = "";
+  scene.obstacles.forEach(function(o, i) {
+    const d = document.createElement("div");
+    d.className = "obs-item" + (selectedObs === i ? " selected" : "");
+    d.innerHTML = '<div class="obs-head"><b>' + o.name + '</b>' +
+      '<button class="danger" data-del="' + i + '">删除</button></div>' +
+      '<div class="row"><div>X<input type="number" step="0.5" data-f="x" data-i="' + i + '" value="' + o.x + '"></div>' +
+      '<div>Y<input type="number" step="0.5" data-f="y" data-i="' + i + '" value="' + o.y + '"></div></div>' +
+      '<div class="row"><div>宽<input type="number" step="0.1" min="0.2" data-f="w" data-i="' + i + '" value="' + o.w + '"></div>' +
+      '<div>深<input type="number" step="0.1" min="0.2" data-f="h" data-i="' + i + '" value="' + o.h + '"></div></div>' +
+      '<div class="row"><div>高<input type="number" step="0.5" min="0.5" data-f="height" data-i="' + i + '" value="' + o.height + '"></div></div>';
+    d.addEventListener("click", function(ev) {
+      if (ev.target.getAttribute("data-del") !== null) return;
+      selectedObs = i; renderObsList(); draw();
+    });
+    d.querySelectorAll("input").forEach(function(inp) {
+      inp.addEventListener("change", function() {
+        const o2 = scene.obstacles[parseInt(inp.dataset.i)];
+        o2[inp.dataset.f] = parseFloat(inp.value);
+        draw();
+      });
+    });
+    const del = d.querySelector("[data-del]");
+    if (del) del.addEventListener("click", function() {
+      scene.obstacles.splice(parseInt(del.dataset.del), 1);
+      if (selectedObs !== null) selectedObs = null;
+      syncPanel(); draw();
+    });
+    box.appendChild(d);
+  });
+}
+["x_min","x_max","y_min","y_max","resolution","takeoff_height","sx","sy","gx","gy"].forEach(function(id) {
+  document.getElementById(id).addEventListener("change", function() { readPanel(); draw(); });
+});
+document.getElementById("btnAddObs").addEventListener("click", function() {
+  const mx = (scene.map.x_min + scene.map.x_max)/2, my = (scene.map.y_min + scene.map.y_max)/2;
+  const o = { name: "Obstacle" + (scene.obstacles.length + 1), x: Math.round(mx*10)/10, y: Math.round(my*10)/10, w: 2, h: 2, height: 14 };
+  scene.obstacles.push(o); selectedObs = scene.obstacles.length - 1;
+  syncPanel(); draw();
+});
+
+function setStatus(txt, isErr) {
+  const s = document.getElementById("status");
+  s.textContent = txt;
+  s.className = isErr ? "err" : "";
+}
+
+async function loadScenes() {
+  const r = await fetch("/api/scenes");
+  const d = await r.json();
+  const sel = document.getElementById("sceneSel");
+  sel.innerHTML = "";
+  (d.scenes || []).forEach(function(n) {
+    const op = document.createElement("option");
+    op.value = n; op.textContent = n;
+    sel.appendChild(op);
+  });
+  if (sel.options.length) { sel.selectedIndex = 0; loadScene(sel.value); }
+}
+async function loadScene(name) {
+  const r = await fetch("/api/scene?name=" + encodeURIComponent(name));
+  if (!r.ok) { setStatus("加载失败: " + name, true); return; }
+  const d = await r.json();
+  scene = d.scene; sceneName = d.name;
+  document.getElementById("sceneName").textContent = sceneName;
+  selectedObs = null;
+  syncPanel(); draw();
+  setStatus("已加载 " + sceneName);
+}
+document.getElementById("btnLoad").addEventListener("click", function() {
+  const sel = document.getElementById("sceneSel");
+  if (sel.value) loadScene(sel.value);
+});
+document.getElementById("btnNew").addEventListener("click", function() {
+  scene = { id: "MyScene", map: { x_min: 0, x_max: 100, y_min: -5, y_max: 5, resolution: 0.5 },
+    start: [0,0], goal: [100,0], takeoff_height: -12, route: { mode: "line" }, obstacles: [] };
+  sceneName = "新场景";
+  document.getElementById("sceneName").textContent = sceneName;
+  selectedObs = null;
+  syncPanel(); draw(); setStatus("");
+});
+document.getElementById("btnSave").addEventListener("click", async function() {
+  readPanel();
+  const name = prompt("保存为（文件名）:", sceneName.endsWith(".yaml") ? sceneName : "scene.yaml");
+  if (!name) return;
+  const r = await fetch("/api/scene", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: name, scene: scene })
+  });
+  const d = await r.json();
+  if (d.ok) { sceneName = d.name; document.getElementById("sceneName").textContent = sceneName; setStatus("已保存 " + d.path); loadScenes(); }
+  else { setStatus("保存失败: " + (d.errors || []).join("; "), true); }
+});
+document.getElementById("btnCheck").addEventListener("click", async function() {
+  readPanel();
+  const r = await fetch("/api/check", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(scene)
+  });
+  const d = await r.json();
+  if (d.ok) setStatus(d.reachable ? "可达 ✓ " + d.message : "不可达 ✗ " + d.message, !d.reachable);
+  else setStatus("校验失败: " + (d.errors || []).join("; "), true);
+});
+
+loadScenes();
+resize();
+</script>
+</body>
+</html>

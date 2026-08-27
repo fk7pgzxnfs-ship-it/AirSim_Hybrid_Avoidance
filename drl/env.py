@@ -19,7 +19,7 @@ class DroneEnv(gym.Env):
     奖励: 到达终点+100, 碰撞-50, 每步惩罚-0.1, 靠近目标奖励
     """
 
-    def __init__(self, supervisor, config: dict):
+    def __init__(self, supervisor, config: dict, scene=None):
         """
         Args:
             supervisor: Supervisor 实例（提供 client 接口）
@@ -48,6 +48,8 @@ class DroneEnv(gym.Env):
         self.reward_cfg = config.get('reward', {})
         self.step_count = 0
         self._prev_action = None
+        # v3: 场景配置（可选），用于走廊/边界惩罚与横向偏差计算
+        self.scene = scene
 
     def reset(self, seed=None, options=None):
         """重置环境"""
@@ -184,17 +186,29 @@ class DroneEnv(gym.Env):
             reward += self.reward_cfg.get('obstacle_penalty', -5.0) * \
                       (1.0 - nearest_dist / 3.0)
 
-        # 走廊边界惩罚：|y|>4.5 开始惩罚，迫使策略保持在版面内（UE 地面范围 y∈[-5,5]）
-        # state[1] = dy = goal_y - y（goal_y=0），故 |y| = |state[1]|
+        # 走廊边界惩罚 + 横向偏移惩罚
         corr_limit = self.reward_cfg.get('corridor_limit', 4.5)
         corr_pen = self.reward_cfg.get('corridor_penalty', 3.0)
-        if abs(state[1]) > corr_limit:
-            reward += -corr_pen * (abs(state[1]) - corr_limit)
-
-        # v2.1: 横向偏移惩罚（鼓励直线段贴中轴线，|y| 越大惩罚越大）
         lateral_pen = self.reward_cfg.get('lateral_penalty', 0.0)
-        if lateral_pen > 0.0:
-            reward += -lateral_pen * abs(state[1])
+        if self.scene is not None:
+            # v3: 横向偏差 = 到起点-终点直线的距离（自定义起点终点时仍有效）
+            pos = self.client.get_position()
+            lat = self.scene.lateral_distance(pos)
+            if lat > corr_limit:
+                reward += -corr_pen * (lat - corr_limit)
+            if lateral_pen > 0.0:
+                reward += -lateral_pen * lat
+            # v3: 地图矩形边界惩罚（飞出边界额外惩罚）
+            if not self.scene.in_bounds(pos[0], pos[1]):
+                over = max(self.scene.x_min - pos[0], pos[0] - self.scene.x_max,
+                           self.scene.y_min - pos[1], pos[1] - self.scene.y_max, 0.0)
+                reward += -self.reward_cfg.get('boundary_penalty', 5.0) * (1.0 + over)
+        else:
+            # 旧行为（无场景配置时兼容 v2：|y| = |state[1]|，goal_y=0）
+            if abs(state[1]) > corr_limit:
+                reward += -corr_pen * (abs(state[1]) - corr_limit)
+            if lateral_pen > 0.0:
+                reward += -lateral_pen * abs(state[1])
 
         # v2.1: 动作平滑惩罚（惩罚相邻动作突变，迫使策略输出平滑指令）
         smooth_pen = self.reward_cfg.get('action_smooth_penalty', 0.0)

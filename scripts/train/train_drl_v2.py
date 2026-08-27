@@ -33,15 +33,25 @@ def main():
     ap.add_argument("--episodes", type=int, default=0, help="覆盖训练轮数")
     ap.add_argument("--quick", action="store_true", help="快速冒烟测试")
     ap.add_argument("--tag", default="v21b", help="模型文件标签")
+    ap.add_argument("--scene", type=str, default=None,
+                    help="场景 yaml 路径（v3，如 config/scenes/scene_100x10.yaml）")
     args = ap.parse_args()
 
     print("=" * 55)
-    print("AirSim Hybrid Avoidance v2.1 - DRL(DDPG) 训练")
+    print("AirSim Hybrid Avoidance v3 - DRL(DDPG) 训练")
+    print("  场景: %s (%.0fm x %.0fm, %d 障碍)" %
+          (scene.id, scene.x_max - scene.x_min, scene.y_max - scene.y_min,
+           len(scene.obstacles)))
     print("=" * 55)
 
     config = yaml.safe_load(open("config/default.yaml", encoding="utf-8"))
     drl_cfg = config["drl"]
     set_seed(drl_cfg["seed"])
+
+    from scene_config import SceneConfig
+    scene = (SceneConfig.load(args.scene) if args.scene
+             else SceneConfig.from_legacy_config(config))
+    start_xyz = [float(scene.start[0]), float(scene.start[1]), float(scene.takeoff_height)]
 
     if args.quick:
         drl_cfg["training"]["episodes"] = 40
@@ -51,24 +61,24 @@ def main():
     if args.episodes:
         drl_cfg["training"]["episodes"] = args.episodes
 
-    # 创建训练仿真（v2.1: 速度惯性对齐 UE fast-physics）
-    phys = config["map"]["obstacles_physical"]
+    # 创建训练仿真（v2.1: 速度惯性对齐 UE fast-physics；v3: 场景驱动，去硬编码）
     client = KinematicSimClient(
-        obstacles=phys,
-        start=config["map"]["origin"],
+        obstacles=scene.obstacles_physical,
+        start=start_xyz,
+        bounds=scene.bounds,
         obstacle_jitter=1.5,
         vel_time_constant=drl_cfg.get("vel_time_constant", 0.1),
         seed=drl_cfg["seed"],
     )
     sup = TrainSupervisor(
         client,
-        start=config["map"]["origin"],
-        goal=config["map"]["goal"],
-        takeoff_height=config["airsim"]["takeoff_height"],
+        start=start_xyz,
+        goal=scene.goal,
+        takeoff_height=scene.takeoff_height,
     )
 
     env_config = {**drl_cfg["env"], "reward": drl_cfg["reward"], "sleep_step": 0.0}
-    env = DroneEnv(sup, env_config)
+    env = DroneEnv(sup, env_config, scene=scene)
 
     trainer = DDPGTrainer(env, drl_cfg)
     t0 = time.time()
@@ -116,7 +126,8 @@ def main():
             ay_std_list.append(np.std(acts[:, 1]))
             y_sw_list.append(int(np.sum(np.diff(np.sign(ys[ys != 0])) != 0)) if np.any(ys != 0) else 0)
             path = np.sum(np.sqrt(np.diff(xs) ** 2 + np.diff(ys) ** 2))
-            path_ratio_list.append(path / 100.0)
+            line_len = float(np.linalg.norm(scene.goal - scene.start))
+            path_ratio_list.append(path / line_len if line_len > 0 else 1.0)
             y_span_list.append(float(ys.max() - ys.min()))
     print("=" * 55)
     print("无探索评估 %d 局结果:" % n_eval)

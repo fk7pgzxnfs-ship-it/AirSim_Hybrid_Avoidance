@@ -48,7 +48,7 @@ def log_size() -> int:
         return 0
 
 
-def verify_csv(path: str, goal_x: float) -> dict:
+def verify_csv(path: str, goal_x: float, scene=None) -> dict:
     """Verify a flight CSV: reaches goal, stays in corridor, keeps altitude."""
     with open(path, encoding="utf-8") as fh:
         rows = list(csv.DictReader(fh))
@@ -57,6 +57,10 @@ def verify_csv(path: str, goal_x: float) -> dict:
     xs = [float(r["x"]) for r in rows]
     ys = [float(r["y"]) for r in rows]
     zs = [float(r["z"]) for r in rows]
+    if scene is not None:
+        y_lo, y_hi = scene.y_min - 0.1, scene.y_max + 0.1
+    else:
+        y_lo, y_hi = -5.1, 5.1
     return {
         "ok": True,
         "steps": len(rows),
@@ -66,7 +70,7 @@ def verify_csv(path: str, goal_x: float) -> dict:
         "z_min": min(zs),
         "z_max": max(zs),
         "reached": max(xs) >= goal_x - 3.0,
-        "corridor": all(-5.1 <= y <= 5.1 for y in ys),
+        "corridor": all(y_lo <= y <= y_hi for y in ys),
         "aloft": all(z < -5.0 for z in zs),
     }
 
@@ -74,14 +78,34 @@ def verify_csv(path: str, goal_x: float) -> dict:
 def main():
     parser = argparse.ArgumentParser(description="v2 demo: repeat closed-loop flights")
     parser.add_argument("--flights", type=int, default=3, help="number of flights")
-    parser.add_argument("--goal_x", type=float, default=100.0)
-    parser.add_argument("--goal_y", type=float, default=0.0)
+    parser.add_argument("--goal_x", type=float, default=None, help="goal x (default: from scene)")
+    parser.add_argument("--goal_y", type=float, default=None, help="goal y (default: from scene)")
+    parser.add_argument("--scene", type=str, default=None,
+                        help="scene yaml path (v3, e.g. config/scenes/scene_100x10.yaml)")
     parser.add_argument("--max_steps", type=int, default=2000)
     args = parser.parse_args()
 
+    scene = None
+    if args.scene:
+        from scene_config import SceneConfig
+        scene = SceneConfig.load(args.scene)
+        if args.goal_x is None:
+            args.goal_x = float(scene.goal[0])
+        if args.goal_y is None:
+            args.goal_y = float(scene.goal[1])
+    if args.goal_x is None:
+        args.goal_x = 100.0
+    if args.goal_y is None:
+        args.goal_y = 0.0
+
     print("=" * 60)
-    print("AirSim Hybrid Avoidance v2 demo")
-    print("  corridor: 100m x 10m, obstacles at x=30 / x=65")
+    print("AirSim Hybrid Avoidance v3 demo")
+    if scene is not None:
+        print("  scene:   %s" % scene.id)
+    print("  corridor: %.0fm x %.0fm, obstacles: %d" %
+          (scene.x_max - scene.x_min if scene else 100,
+           scene.y_max - scene.y_min if scene else 10,
+           len(scene.obstacles) if scene else 2))
     print("  flights:  %d, goal: (%.1f, %.1f), max_steps: %d" %
           (args.flights, args.goal_x, args.goal_y, args.max_steps))
     print("=" * 60)
@@ -102,7 +126,7 @@ def main():
 
         result = run_single_flight(args.goal_x, args.goal_y,
                                    "config/default.yaml", args.max_steps,
-                                   reload_scene=True)
+                                   reload_scene=True, scene_path=args.scene)
 
         new_files = sorted(set(glob.glob(os.path.join(FLIGHTS_DIR, "flight_2026*.csv"))) - before_flights)
         csv_path = new_files[-1] if new_files else None
@@ -114,7 +138,7 @@ def main():
              "time": result.get("time", 0.0),
              "collisions": collisions}
         if ok and csv_path:
-            c = verify_csv(csv_path, args.goal_x)
+            c = verify_csv(csv_path, args.goal_x, scene)
             v["csv_ok"] = c["ok"] and c["reached"] and c["corridor"] and c["aloft"]
             v["x_max"] = c["x_max"]
             v["y_range"] = (c["y_min"], c["y_max"])

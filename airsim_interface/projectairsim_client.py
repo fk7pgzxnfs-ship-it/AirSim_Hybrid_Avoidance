@@ -67,14 +67,17 @@ def check_connection():
     return ok
 
 
-def load_scene(scene_config_path=None):
+def load_scene(scene_config_path=None, scene_config=None):
     """?? RPC ???????scene_config ? JSON ????"""
-    if scene_config_path is None:
-        scene_config_path = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            "config", "scene_v2_100x10.jsonc")
     import commentjson
-    cfg = commentjson.load(open(scene_config_path, encoding="utf-8"))
+    if scene_config is None:
+        if scene_config_path is None:
+            scene_config_path = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                "config", "scene_v2_100x10.jsonc")
+        cfg = commentjson.load(open(scene_config_path, encoding="utf-8"))
+    else:
+        cfg = scene_config
     robot = commentjson.load(open(ROBOT_CFG, encoding="utf-8"))
     for a in cfg.get("actors", []):
         if a.get("type") == "robot":

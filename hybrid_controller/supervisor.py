@@ -27,9 +27,25 @@ from planning.potential_field import PotentialField
 class Supervisor:
     """?????????????"""
 
-    def __init__(self, config_path: str = "config/default.yaml"):
+    def __init__(self, config_path: str = "config/default.yaml",
+                 scene_path: str = None, scene=None):
         with open(config_path, 'r', encoding='utf-8') as f:
             self.cfg = yaml.safe_load(f)
+
+        # v3: 场景配置（地图/起点/终点/障碍物/路线）优先来自场景文件；
+        # 未指定时从 default.yaml 的 map 段构造（兼容旧调用）
+        if scene is not None:
+            self.scene = scene
+        elif scene_path:
+            from scene_config import SceneConfig
+            self.scene = SceneConfig.load(scene_path)
+        else:
+            from scene_config import SceneConfig
+            self.scene = SceneConfig.from_legacy_config(self.cfg)
+
+        # 训练桩/评估等通过 cfg['airsim']['takeoff_height'] 取高度，保持兼容
+        self.cfg.setdefault('airsim', {})['takeoff_height'] = self.scene.takeoff_height
+
         self._init_modules()
         self.flight_log = []
         self.step_count = 0
@@ -37,42 +53,43 @@ class Supervisor:
 
     def _init_modules(self) -> None:
         cfg = self.cfg
+        scene = self.scene
 
-        # ????????/??LiDAR??: [x, y, ????]
-        physical_obstacles = cfg['map'].get('obstacles_physical',
-                                            [[o[0], o[1], 1.0] for o in cfg['map']['obstacles']])
+        # 物理障碍物/碰撞LiDAR: [x, y, 等效半径]（v3 从场景推导）
+        physical_obstacles = scene.obstacles_physical
 
-        # UE ???
+        # UE 客户端（scene_id 必须与场景文件 id 一致，LoadScene 上传用）
         self.client = ProjectAirSimClientWrapper(
             drone_name=cfg['airsim']['vehicle_name'],
-            scene_id=cfg['airsim']['scene_id'],
+            scene_id=scene.id,
             obstacles=physical_obstacles,
             addr=cfg['airsim']['ip'],
             port=cfg['airsim']['port'],
         )
 
-        # ????????????????
+        # 栅格地图：用规划障碍物（膨胀半径）填充
         self.grid_map = GridMap(
-            x_min=cfg['map']['x_min'], x_max=cfg['map']['x_max'],
-            y_min=cfg['map']['y_min'], y_max=cfg['map']['y_max'],
-            resolution=cfg['map']['resolution']
+            x_min=scene.x_min, x_max=scene.x_max,
+            y_min=scene.y_min, y_max=scene.y_max,
+            resolution=scene.resolution
         )
-        self.grid_map.add_obstacle_list(cfg['map']['obstacles'])
+        self.grid_map.add_obstacle_list(scene.obstacles_plan)
         self.grid_map.inflate_obstacles(0.5)
 
-        # ?????
+        # 传感器
         self.sensor_processor = SensorProcessor(max_range=35.0, num_sectors=16)
 
-        # ?????
+        # 全局规划器
         gp_cfg = cfg['global_planner']
         self.global_planner = GlobalPlanner(
             grid_map=self.grid_map,
             lookahead_distance=gp_cfg['lookahead_distance'],
             waypoint_reach_threshold=gp_cfg['waypoint_reach_threshold'],
-            max_speed=gp_cfg['max_speed']
+            max_speed=gp_cfg['max_speed'],
+            route_mode=scene.route_mode
         )
 
-        # ??????DRL?
+        # DRL 局部规划器
         drl_cfg = cfg['drl']
         agent = None
         ckpt = cfg['model'].get('load_checkpoint', '')
@@ -95,7 +112,7 @@ class Supervisor:
             action_high=drl_cfg['env']['action_high']
         )
 
-        # ?????
+        # 势场/安全监控
         pf_cfg = cfg['potential_field']
         potential_field = PotentialField(
             repulsive_gain=pf_cfg['repulsive_gain'],
@@ -107,14 +124,13 @@ class Supervisor:
             potential_field=potential_field
         )
 
-        # ??/??
-        self.start_pos = np.array(cfg['map']['origin'][:2])
-        self.goal_pos = np.array(cfg['map'].get('goal', [100.0, 0.0])[:2])
-        self.y_min = cfg['map']['y_min']
-        self.y_max = cfg['map']['y_max']
-        self.x_min = cfg['map']['x_min']
-        self.x_max = cfg['map']['x_max']
-
+        # 起点/终点/边界（v3 从场景读）
+        self.start_pos = np.array(scene.start[:2])
+        self.goal_pos = np.array(scene.goal[:2])
+        self.y_min = scene.y_min
+        self.y_max = scene.y_max
+        self.x_min = scene.x_min
+        self.x_max = scene.x_max
     def set_goal(self, goal_x: float, goal_y: float) -> None:
         self.goal_pos = np.array([goal_x, goal_y])
 

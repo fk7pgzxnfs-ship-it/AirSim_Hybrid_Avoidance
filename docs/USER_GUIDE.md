@@ -1,11 +1,21 @@
-# AirSim Hybrid Avoidance v2.2 - 使用说明
+# AirSim Hybrid Avoidance v3.0.2 - 使用说明
 
-> 适用版本：v2.2（2026-08-21）。目标场景：100m×10m 走廊 + 双障碍物（x=30 / x=65）DRL 避障，UE 5.7 实机闭环。
-> v2.2 核心：**统一入口 `python main.py`**——接上 UE 直接跑，散落脚本分类到 `scripts/`（fly / train / evaluate / diag / tools）。
-> v2.1 核心：修复直线段蛇形振荡（纯算法层奖励塑形，部署端零改动）。
+> 适用版本：v3.0.2（2026-08-22）。支持自定义地图范围、起点终点与障碍物布局；路线 = 起点终点直线。UE 5.7 实机闭环。
+> 操作入口：**双击 `AirSim控制台.exe` 弹出 Windows 原生窗口**（WebView2 内核，Win11 现代界面，无黑色控制台框）；开发模式 `python main.py` 等价弹窗；`--browser` 回退浏览器；`python main.py --editor` 打开网页场景编辑器，`python main.py --scene 场景.yaml --flights 3` 命令行直跑。
+> v2.x 背景：v2.2 统一入口 main.py；v2.1 修复直线段蛇形振荡（纯算法层奖励塑形，部署端零改动）。
 > 配套文档：`README.md`（总览）、`CHANGELOG.md`（版本记录）、`docs/handover.md`（技术细节与根因分析）。
 
 ---
+
+## 0. 直接双击 exe（推荐）
+
+1. 把 `AirSim控制台.exe` 放到一个目录（数据目录 = exe 所在目录；首次使用可直接放项目根）。
+2. 确认 exe 同目录下有 `config/scenes`（场景文件）、`scripts`（飞行/训练脚本）、`models/drl_agent`（模型权重）、`web/static`（页面资源）。
+3. 启动 UE 5.7（见步骤 2）并等待端口 8990 就绪。
+4. 双击 `AirSim控制台.exe`：直接弹出 Windows 原生窗口（无黑色控制台框），选场景 → 点“飞行”即可。
+
+> exe 是“控制台外壳”：点击飞行/训练/评估等按钮时，会调用**本机系统 Python** 在后台执行 `scripts/...` 脚本（自动探测 `python`；也可设置环境变量 `AIRSIM_PYTHON` 指定解释器路径）。因此本机仍需安装 Python 与依赖（`pip install -r requirements.txt`）。
+> exe 首次启动约 10–15 秒（onefile 自解压），之后窗口即弹。
 
 ## 1. 环境要求
 
@@ -38,11 +48,26 @@ pip install -r requirements.txt
 Test-NetConnection 127.0.0.1 -Port 8990 | Select-Object TcpTestSucceeded
 ```
 
-### 步骤 3：单次避障飞行（统一入口）
+### 步骤 2.5：自定义场景（v3，可选）
 ```bash
-python main.py            # 交互菜单选 1
-python main.py --single   # 或命令行直跑
+python main.py --editor
 ```
+- 浏览器打开 http://127.0.0.1:8787：拖拽红框摆障碍物、拖绿点/橙星定起点终点、面板改地图范围与障碍尺寸，点击"可达性检查"确认布局，保存到 `config/scenes/<name>.yaml`。
+- 场景文件结构见 `config/scenes/scene_100x10.yaml`（地图 / start / goal / obstacles / route.mode=line）。
+- 指定场景运行：所有命令加 `--scene config/scenes/<name>.yaml`。
+- **注意**：自定义布局后必须重训模型（见步骤 5），v2.1b 模型只适用默认场景。
+
+### 步骤 3：飞行（Windows 原生控制台窗口）
+```bash
+python main.py            # 自动启动本地服务并弹出原生窗口
+```
+- 窗口自动弹出并加载 http://127.0.0.1:8787/console（Win11 现代风格，自动适配深色模式）：
+  - **场景**：下拉选择场景 / 打开网页编辑器 / 检查 UE 连接
+  - **飞行**：单次避障飞行 / 连续飞行 N 次
+  - **训练评估**：平滑度评估 / 重新训练模型（需确认）
+  - **系统**：停止当前任务 / 查看实时日志
+- 任务执行中相关按钮自动禁用，可随时“停止当前任务”；日志增量实时滚动显示。
+- 命令行直跑等价：`python main.py --single` / `python main.py --flights 3`（加 `--scene 场景.yaml` 指定场景）。
 - 内部调用 `scripts/fly/run_hybrid.py --goal_x 100 --goal_y 0 --max_steps 2000`；脚本会自动：LoadScene 重载场景 → 复位到地面 → takeoff 爬升 → DRL 避障飞向终点 → 悬停保持。
 - 成功输出示例：`成功: True，步数 145，耗时 52.42s，路径长度 112.64m`。
 
@@ -89,9 +114,13 @@ python experiments/visualize_trajectory.py --csv logs/flights/flight_xxx.csv
 ### 3.1 飞行
 | 命令 | 说明 |
 |---|---|
-| `python main.py` | 交互菜单（1 单次 / 2 连续 / 3 评估 / 4 重训 / 5 检查连接 / 0 退出） |
+| `python main.py` | 弹出 Windows 原生控制台窗口（WebView2 内核，现代界面，推荐；自动启动本地服务 http://127.0.0.1:8787/console） |
+| `python main.py --browser` | 备用：浏览器打开控制台 |
+| `python main.py --menu` | 命令行菜单（高级用户） |
+| `python main.py --editor` | 启动网页场景编辑器（http://127.0.0.1:8787） |
+| `python main.py --scene <yaml> --flights 3` | 指定场景连续飞行（v3） |
 | `python main.py --single` | 单次闭环飞行（内部调 scripts/fly/run_hybrid.py） |
-| `python main.py --flights 3` | 连续 3 次飞行 + 自动校验（内部调 scripts/fly/run_v2_demo.py） |
+| `python main.py --flights 3` | 连续 3 次飞行 + 自动校验（默认场景） |
 | `python scripts/fly/run_hybrid.py --goal_x 100 --goal_y 0 --max_steps 2000` | 底层单次飞行（默认先 LoadScene） |
 | `python scripts/fly/run_hybrid.py --no-reload` | 跳过飞行前的 LoadScene（不推荐连续使用，见 FAQ 3） |
 | `python scripts/fly/run_v2_demo.py --flights 5 --goal_x 100` | 底层自定义飞行次数/目标 |
@@ -100,6 +129,7 @@ python experiments/visualize_trajectory.py --csv logs/flights/flight_xxx.csv
 | 命令 | 说明 |
 |---|---|
 | `python main.py --train` | 完整训练（约 25 分钟，CPU；内部调 scripts/train/train_drl_v2.py） |
+| `python scripts/tools/gen_scene.py --scene <yaml> --preview out.png` | 场景生成器：yaml → UE jsonc + 2D 预览图（v3） |
 | `python main.py --eval` | 一键平滑度评估（60 局，无需 UE） |
 | `python scripts/train/train_drl_v2.py --episodes 1500` | 完整训练（`--tag` 默认 `v21b`） |
 | `python scripts/train/train_drl_v2.py --episodes 1500 --tag mytag` | 自定义输出标签（rewards_<tag>.npy） |
@@ -118,6 +148,12 @@ python experiments/visualize_trajectory.py --csv logs/flights/flight_xxx.csv
 | `python scripts/evaluate/_plot_traj.py` | 生成样例轨迹图（3 面板：轨迹 / y 放大 / action_y） |
 | `python experiments/visualize_trajectory.py --csv <文件>` | 单条飞行轨迹图 |
 | `python experiments/visualize.py --mode 3d --log <文件>` | 旧版可视化入口 |
+
+### 3.4 打包 exe（开发者）
+| 命令 | 说明 |
+|---|---|
+| `pip install pyinstaller` | 安装打包工具（可选，仅打包时用） |
+| `python scripts/tools/build_exe.py` | 一键打包，产物 `dist/AirSim控制台.exe` 并复制到项目根 |
 
 ---
 
@@ -207,7 +243,11 @@ Select-String -Path "D:\ProjectAirSim-main\unreal\Blocks 5.7\Saved\Logs\Blocks.l
 ### 8. 本机 PowerShell 中 python 找不到
 - 使用完整路径：`C:\Users\13631\AppData\Local\Programs\Python\Python313\python.exe`。
 
-### 9. 训练中途想停止 / 卡死恢复
+### 9. 自定义场景后无人机飞得乱（频繁 SAFETY 介入）
+- 原因（确定事实）：v2.1b 模型只在默认 100×10 + 双障碍分布上训练，换布局后策略失效，势场兜底频繁抢方向盘。
+- 解决：`python main.py --train` 在新场景上重训（奖励已场景化：横向偏差 + 地图边界惩罚）；训练完成后评估验证。
+
+### 10. 训练中途想停止 / 卡死恢复
 - 停掉 python 进程即可（训练会自动保存最近 checkpoint 到 `models/drl_agent/`）。
 - 无人机卡死恢复：关闭 UE → 重启 UE → 重新运行飞行脚本。
 
@@ -222,18 +262,24 @@ Select-String -Path "D:\ProjectAirSim-main\unreal\Blocks 5.7\Saved\Logs\Blocks.l
 # 2. 等端口就绪
 Test-NetConnection 127.0.0.1 -Port 8990 | Select-Object TcpTestSucceeded
 
-# 3. 一键飞行（交互菜单或命令行直跑）
-python main.py
+# 3. 打开控制台（推荐：双击 AirSim控制台.exe；等价命令行）
+python main.py                    # 弹出窗口：选场景、飞行、评估、重训都在按钮里
+
+# 4. 自定义场景（可选）
+python main.py --editor           # 网页编辑器，保存到 config/scenes/<name>.yaml
+
+# 5. 命令行直跑（指定场景或默认）
+python main.py --scene config/scenes/scene_100x10.yaml --flights 3
 python main.py --flights 3
 
-# 4. 检查 UE 连接
+# 6. 检查 UE 连接
 python main.py --check
 
-# 5. 平滑度复核（无需 UE）
-python main.py --eval
+# 7. 平滑度复核（无需 UE）
+python main.py --scene config/scenes/scene_100x10.yaml --eval
 
-# 6. 训练（如需重训）
-python main.py --train
+# 8. 训练（自定义布局后必须重训）
+python main.py --scene config/scenes/你的场景.yaml --train
 
 # 7. 轨迹可视化
 python experiments/visualize_trajectory.py --csv logs/flights/flight_<时间戳>.csv

@@ -1,0 +1,33 @@
+# 自定义场景示例：120m x 16m，3 个障碍，斜向起点终点
+# 用于验证 v3 自定义布局机制（此布局需重训模型后才能保证飞行效果）
+id: SceneTest120x16
+map:
+  x_min: 0.0
+  x_max: 120.0
+  y_min: -8.0
+  y_max: 8.0
+  resolution: 0.5
+start: [5.0, -3.0]
+goal: [115.0, 3.0]
+takeoff_height: -14.0
+route:
+  mode: line
+obstacles:
+  - name: Obstacle1
+    x: 30.0
+    y: 2.0
+    w: 3.0
+    h: 3.0
+    height: 14.0
+  - name: Obstacle2
+    x: 65.0
+    y: -3.0
+    w: 2.0
+    h: 2.0
+    height: 14.0
+  - name: Obstacle3
+    x: 95.0
+    y: 4.0
+    w: 4.0
+    h: 2.0
+    height: 14.0
