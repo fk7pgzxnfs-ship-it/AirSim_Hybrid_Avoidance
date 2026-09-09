@@ -1,7 +1,7 @@
-# AirSim Hybrid Avoidance v3.0.2 - 使用说明
+# AirSim Hybrid Avoidance v3.1 - 使用说明
 
-> 适用版本：v3.0.2（2026-08-22）。支持自定义地图范围、起点终点与障碍物布局；路线 = 起点终点直线。UE 5.7 实机闭环。
-> 操作入口：**双击 `AirSim控制台.exe` 弹出 Windows 原生窗口**（WebView2 内核，Win11 现代界面，无黑色控制台框）；开发模式 `python main.py` 等价弹窗；`--browser` 回退浏览器；`python main.py --editor` 打开网页场景编辑器，`python main.py --scene 场景.yaml --flights 3` 命令行直跑。
+> 适用版本：v3.1（2026-09-09）。支持自定义地图范围、起点终点与障碍物布局；弹窗内置「场景编辑器」标签页与「自动连接 UE」。UE 5.7 实机闭环。
+> 操作入口：**双击 `AirSim控制台.exe` 弹出 Windows 原生窗口**（WebView2 内核，Win11 现代界面，无黑色控制台框；顶部「控制台 / 场景编辑器」标签页切换，内置**自动连接 UE** 一键启动）；开发模式 `python main.py` 等价弹窗；`--browser` 回退浏览器；`--scene 场景.yaml --flights 3` 命令行直跑。
 > v2.x 背景：v2.2 统一入口 main.py；v2.1 修复直线段蛇形振荡（纯算法层奖励塑形，部署端零改动）。
 > 配套文档：`README.md`（总览）、`CHANGELOG.md`（版本记录）、`docs/handover.md`（技术细节与根因分析）。
 
@@ -52,7 +52,7 @@ Test-NetConnection 127.0.0.1 -Port 8990 | Select-Object TcpTestSucceeded
 ```bash
 python main.py --editor
 ```
-- 浏览器打开 http://127.0.0.1:8787：拖拽红框摆障碍物、拖绿点/橙星定起点终点、面板改地图范围与障碍尺寸，点击"可达性检查"确认布局，保存到 `config/scenes/<name>.yaml`。
+- 两种用法：弹窗顶部「场景编辑器」标签页（推荐）；或浏览器打开 http://127.0.0.1:8787。拖拽红框摆障碍物、拖绿点/橙星定起点终点、面板改地图范围与障碍尺寸，点击"可达性检查"确认布局，保存到 `config/scenes/<name>.yaml`。
 - 场景文件结构见 `config/scenes/scene_100x10.yaml`（地图 / start / goal / obstacles / route.mode=line）。
 - 指定场景运行：所有命令加 `--scene config/scenes/<name>.yaml`。
 - **注意**：自定义布局后必须重训模型（见步骤 5），v2.1b 模型只适用默认场景。
@@ -62,6 +62,7 @@ python main.py --editor
 python main.py            # 自动启动本地服务并弹出原生窗口
 ```
 - 窗口自动弹出并加载 http://127.0.0.1:8787/console（Win11 现代风格，自动适配深色模式）：
+  - **自动连接 UE**：UE 未启动时点顶栏「自动连接 UE」，自动启动进程并等待端口 8990 就绪（路径在「系统 → UE 启动设置」修改，保存到 config/ue_launch.json）。
   - **场景**：下拉选择场景 / 打开网页编辑器 / 检查 UE 连接
   - **飞行**：单次避障飞行 / 连续飞行 N 次
   - **训练评估**：平滑度评估 / 重新训练模型（需确认）
@@ -115,7 +116,9 @@ python experiments/visualize_trajectory.py --csv logs/flights/flight_xxx.csv
 | 命令 | 说明 |
 |---|---|
 | `python main.py` | 弹出 Windows 原生控制台窗口（WebView2 内核，现代界面，推荐；自动启动本地服务 http://127.0.0.1:8787/console） |
-| `python main.py --browser` | 备用：浏览器打开控制台 |
+| python main.py --browser | 备用：浏览器打开控制台 |
+| （弹窗）自动连接 UE | 一键启动 UE 进程并等待端口 8990；路径见「系统 → UE 启动设置」/ config/ue_launch.json |
+| （弹窗）场景编辑器标签页 | 控制台顶部标签页直接编辑场景，无需另开浏览器 |
 | `python main.py --menu` | 命令行菜单（高级用户） |
 | `python main.py --editor` | 启动网页场景编辑器（http://127.0.0.1:8787） |
 | `python main.py --scene <yaml> --flights 3` | 指定场景连续飞行（v3） |

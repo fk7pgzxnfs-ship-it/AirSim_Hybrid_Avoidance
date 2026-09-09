@@ -2,6 +2,29 @@
 
 版本记录遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 风格。日期依据 `docs/handover.md` 与文件时间戳（确定事实）。
 
+## [v3.1] - 2026-09-09
+### 里程碑
+场景编辑器集成进 Windows 原生弹窗（顶部「控制台 / 场景编辑器」标签页切换，窗口内直接拖拽编辑场景并保存）；弹窗新增「自动连接 UE」——一键启动 UE 进程并自动等待端口 8990，不再需要手动敲命令启动 UE。
+
+### 新增
+- **编辑器集成进弹窗**：console 页面顶部标签页懒加载 iframe 内嵌原网页编辑器（`/`），原「打开网页编辑器（新标签页）」按钮改为窗口内切换；切回控制台自动刷新场景列表。
+- **自动连接 UE（后端）** `web/app.py`：
+  - `POST /api/ue/start`：校验引擎/工程路径后启动 UE（`UnrealEditor.exe <uproject> GISMap -game -windowed -ResX=1280 -ResY=720`），后台线程轮询直至 8990 可连或超时；
+  - `POST /api/ue/stop` 停止 UE 进程；`GET/POST /api/ue/config` 读写 UE 启动配置；
+  - `GET /api/ue` 返回连接/启动/错误状态；`/api/status` 新增 `ue_launching` / `ue_error` 字段供轮询。
+- **UE 启动配置** `config/ue_launch.json`：engine_exe / project / map / extra_args / wait_seconds（默认 180s）；弹窗「系统 → UE 启动设置」可在线修改保存。
+- **控制台 UI**：顶栏 UE 状态胶囊旁新增「自动连接 UE」按钮（启动中/已连接自动禁用）；日志区输出启动过程；错误（引擎不存在、启动失败、等待超时）直接提示。
+
+### 变更
+- 弹窗默认尺寸 1280x820 → 1360x860（最小 1080x700）；窗口标题 v3.1。
+- 场景编辑器按钮行为：不再新开浏览器标签页，改为窗口内标签页切换。
+
+### 验证（确定事实）
+- Flask test client：`/` `/console` `/api/status` `/api/ue/config` `/api/ue` 全部 200；`/api/status` 含 `ue_launching`/`ue_error`。
+- 启动状态机（以本机 python 模拟 UE 进程）：`/api/ue/start` 200 → `launching/proc_alive=true`（`/api/status.ue_launching=true`）→ `/api/ue/stop` 200 → 全部复位。
+- 错误路径：引擎路径不存在时 `/api/ue/start` 返回 400 并提示在「系统」或 `config/ue_launch.json` 修改。
+- 配置保存/恢复正常；64 个 .py 全部 py_compile 通过。
+- **未执行项（不确定信息）**：真实 UE 启动未在本轮执行（避免占用重资源）；本机 `D:\UE_5.7\...\UnrealEditor.exe` 与 `Blocks.uproject` 已确认存在，默认配置可直接使用。
 ## [v3.0.3] - 2026-08-22
 ### 修复
 - **`python main.py` 启动崩溃（ValueError: I/O operation on closed file）**：`main.py`、`web/webview_app.py`、`web/app.py` 三个模块各自对 `sys.stdout` 做 `TextIOWrapper` 包装，重复包装时旧 wrapper 被垃圾回收会关闭共享 buffer，第三个模块再访问 `sys.stdout.buffer` 即抛该异常（表现为"原生窗口不可用，回退浏览器"后二次崩溃）。

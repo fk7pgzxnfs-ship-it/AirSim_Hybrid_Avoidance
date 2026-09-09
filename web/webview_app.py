@@ -46,7 +46,7 @@ from web.app import app as flask_app  # noqa: E402
 
 PORT = 8787
 URL = 'http://127.0.0.1:%d/console' % PORT
-WINDOW_TITLE = 'AirSim v3 \u63a7\u5236\u53f0'
+WINDOW_TITLE = 'AirSim v3.1 \u63a7\u5236\u53f0'
 
 
 def _port_open(port, timeout=0.3):
@@ -102,7 +102,7 @@ def open_window():
     try:
         webview.create_window(
             WINDOW_TITLE, URL,
-            width=1280, height=820, min_size=(980, 640),
+            width=1360, height=860, min_size=(1080, 700),
             background_color='#f3f3f3',
         )
         webview.start()

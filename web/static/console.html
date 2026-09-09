@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AirSim v3 控制台</title>
+<title>AirSim v3.1 控制台</title>
 <style>
   :root {
     --bg: #f3f3f3; --card: #ffffff; --text: #1b1b1b; --sub: #6e6e6e;
@@ -18,27 +18,50 @@
     }
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
   body {
     font-family: "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", sans-serif;
     background: var(--bg); color: var(--text);
-    min-height: 100vh; padding: 16px;
+    padding: 16px; overflow-y: auto;
   }
   .topbar {
-    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
     background: var(--card); border: 1px solid var(--border);
-    border-radius: 10px; padding: 12px 18px; margin-bottom: 14px;
+    border-radius: 10px; padding: 10px 16px; margin-bottom: 14px;
     box-shadow: 0 2px 8px rgba(0,0,0,.06);
   }
-  .topbar h1 { font-size: 17px; font-weight: 600; }
+  .topbar h1 { font-size: 16px; font-weight: 600; white-space: nowrap; }
+  .spacer { flex: 1; }
+  .tabs {
+    display: inline-flex; background: var(--bg);
+    border: 1px solid var(--border); border-radius: 9px; padding: 3px; gap: 2px;
+  }
+  .tab {
+    font-family: inherit; font-size: 13px; color: var(--sub);
+    background: transparent; border: none; border-radius: 6px;
+    padding: 6px 16px; cursor: pointer; transition: background .12s, color .12s;
+  }
+  .tab.active { background: var(--accent); color: #fff; font-weight: 600; }
+  .tab:not(.active):hover { background: color-mix(in srgb, var(--accent) 10%, var(--bg)); color: var(--text); }
   .pill {
     display: inline-flex; align-items: center; gap: 7px;
     font-size: 12.5px; color: var(--sub);
     background: var(--bg); border: 1px solid var(--border);
-    border-radius: 20px; padding: 4px 12px;
+    border-radius: 20px; padding: 4px 12px; white-space: nowrap;
   }
   .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--sub); }
   .dot.ok { background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 22%, transparent); }
   .dot.bad { background: var(--bad); box-shadow: 0 0 0 3px color-mix(in srgb, var(--bad) 22%, transparent); }
+  .btn-mini {
+    font-family: inherit; font-size: 12.5px; color: var(--text);
+    background: var(--card); border: 1px solid var(--accent); color: var(--accent);
+    border-radius: 20px; padding: 5px 16px; cursor: pointer; white-space: nowrap;
+    transition: background .12s;
+  }
+  .btn-mini:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 8%, var(--card)); }
+  .btn-mini:disabled { opacity: .6; cursor: not-allowed; }
+  .view { display: none; }
+  .view.active { display: block; }
   .wrap { display: grid; grid-template-columns: 330px 1fr; gap: 14px; }
   @media (max-width: 900px) { .wrap { grid-template-columns: 1fr; } }
   .card {
@@ -70,35 +93,53 @@
     background: var(--bg); border: 1px solid var(--border);
     border-radius: 7px; padding: 8px 10px; width: 100%; margin-bottom: 8px;
   }
-  .row { display: flex; gap: 8px; }
+  label.lbl { display: block; font-size: 12px; color: var(--sub); margin: 6px 0 4px; }
+  .row { display: flex; gap: 8px; align-items: center; }
   .row select { margin-bottom: 12px; }
-  .row input { width: 64px; margin-bottom: 12px; }
+  .row input { width: 64px; margin-bottom: 8px; }
+  .hint.small { font-size: 11.5px; color: var(--sub); margin-top: 2px; }
+  .hint.small.ok { color: var(--ok); }
+  .hint.small.err { color: var(--bad); }
   .logbox {
     background: var(--log-bg); border-radius: 10px;
     font-family: "Cascadia Code", Consolas, monospace; font-size: 12px;
-    color: var(--log-fg); padding: 14px; height: calc(100vh - 130px);
+    color: var(--log-fg); padding: 14px;
+    height: calc(100vh - 190px); min-height: 320px;
     overflow-y: auto; white-space: pre-wrap; word-break: break-all;
     line-height: 1.55;
   }
   .logbox .done { color: #6ccb5f; }
   .logbox .err { color: #ff99a0; }
   .logbox .sep { color: #5a5a5a; }
+  #view-editor { height: calc(100vh - 96px); min-height: 480px; }
+  #view-editor iframe {
+    width: 100%; height: 100%; border: 1px solid var(--border);
+    border-radius: 10px; background: #fff; display: block;
+  }
 </style>
 </head>
 <body>
 <div class="topbar">
-  <h1>AirSim Hybrid Avoidance 控制台</h1>
-  <span class="pill"><span id="ueDot" class="dot"></span>UE <span id="ueText">检测中</span></span>
+  <h1>AirSim Hybrid Avoidance</h1>
+  <nav class="tabs">
+    <button class="tab active" id="tabConsole" type="button">控制台</button>
+    <button class="tab" id="tabEditor" type="button">场景编辑器</button>
+  </nav>
+  <span class="spacer"></span>
+  <span class="pill" title=""><span id="ueDot" class="dot"></span>UE <span id="ueText">检测中</span></span>
+  <button class="btn-mini" id="btnUeAuto" type="button">自动连接 UE</button>
   <span class="pill">场景 <span id="sceneText">-</span></span>
   <span class="pill" id="taskPill" style="display:none">运行中: <span id="taskLabel"></span></span>
 </div>
+
+<div class="view active" id="view-console">
 <div class="wrap">
   <div>
     <div class="card">
       <h2>场景</h2>
       <select id="sceneSel"></select>
-      <button class="btn" id="btnRefresh">刷新列表 <span class="hint">↻</span></button>
-      <button class="btn" id="btnEditor">打开网页编辑器 <span class="hint">新标签页</span></button>
+      <button class="btn" id="btnRefresh">刷新列表 <span class="hint">&#8635;</span></button>
+      <button class="btn" id="btnEditor">场景编辑器 <span class="hint">窗口内标签页</span></button>
     </div>
     <div class="card">
       <h2>飞行（需 UE）</h2>
@@ -121,6 +162,22 @@
       <h2>系统</h2>
       <button class="btn" id="btnStop">停止当前任务</button>
       <button class="btn" id="btnCheck">检查 UE 连接</button>
+      <button class="btn primary" id="btnUeAuto2">自动连接 UE <span class="hint">启动并等待端口 8990</span></button>
+    </div>
+    <div class="card">
+      <h2>UE 启动设置</h2>
+      <label class="lbl">引擎路径 (UnrealEditor.exe)</label>
+      <input type="text" id="ueEngine" spellcheck="false" placeholder="D:\UE_5.7\Engine\Binaries\Win64\UnrealEditor.exe">
+      <label class="lbl">工程路径 (*.uproject)</label>
+      <input type="text" id="ueProject" spellcheck="false" placeholder="...\Blocks 5.7\Blocks.uproject">
+      <label class="lbl">地图</label>
+      <input type="text" id="ueMap" spellcheck="false" placeholder="GISMap">
+      <label class="lbl">附加启动参数（空格分隔）</label>
+      <input type="text" id="ueArgs" spellcheck="false" placeholder="-game -windowed -ResX=1280 -ResY=720">
+      <label class="lbl">最长等待连接（秒）</label>
+      <input type="number" id="ueWait" value="180" min="30" max="900" style="width:120px">
+      <button class="btn" id="btnUeSave">保存 UE 设置 <span class="hint">config/ue_launch.json</span></button>
+      <div class="hint small" id="ueCfgMsg"></div>
     </div>
   </div>
   <div class="card" style="margin-bottom:0">
@@ -128,12 +185,17 @@
     <div class="logbox" id="logbox"></div>
   </div>
 </div>
+</div>
+
+<div class="view" id="view-editor"></div>
+
 <script>
 "use strict";
 const $ = (id) => document.getElementById(id);
 let scenes = [];
 let since = 0;
 let busy = false;
+let ueLaunching = false;
 const S = {
   single: "scripts/fly/run_hybrid.py",
   flights: "scripts/fly/run_v2_demo.py",
@@ -174,13 +236,102 @@ async function loadScenes() {
   $("sceneText").textContent = sel.value || "默认 100x10";
 }
 
+// ---------- UE 自动连接 ----------
+function renderUe(st) {
+  const dot = $("ueDot"), txt = $("ueText"), btn = $("btnUeAuto");
+  ueLaunching = !!st.ue_launching;
+  if (st.ue) {
+    dot.className = "dot ok";
+    txt.textContent = "已连接";
+    btn.disabled = true; btn.textContent = "已连接 \u2713";
+  } else if (ueLaunching) {
+    dot.className = "dot";
+    txt.textContent = "启动中\u2026";
+    btn.disabled = true; btn.textContent = "启动中\u2026";
+  } else {
+    dot.className = "dot bad";
+    txt.textContent = "未连接";
+    btn.disabled = false; btn.textContent = "自动连接 UE";
+  }
+  btn.title = st.ue_error || "";
+  $("ueDot").parentElement.title = st.ue_error || "";
+  if (st.ue_error) $("btnUeAuto2").title = st.ue_error;
+}
+async function ueStart() {
+  if (ueLaunching) return;
+  try {
+    const r = await api("/api/ue/start", { method: "POST" });
+    if (r.ok) {
+      $("ueText").textContent = r.connected ? "已连接" : "启动中\u2026";
+      $("btnUeAuto").disabled = true;
+      $("btnUeAuto").textContent = "启动中\u2026";
+      if (!r.connected) log("[UE] " + (r.message || "正在启动 UE..."), "sep");
+    } else {
+      log("[UE] 启动失败: " + (r.error || "未知错误"), "err");
+      $("ueText").textContent = "未连接";
+    }
+  } catch (e) {
+    log("[UE] 请求异常: " + e, "err");
+  }
+}
+async function loadUeCfg() {
+  try {
+    const d = await api("/api/ue/config");
+    $("ueEngine").value = d.engine_exe || "";
+    $("ueProject").value = d.project || "";
+    $("ueMap").value = d.map || "GISMap";
+    $("ueArgs").value = (d.extra_args || []).join(" ");
+    $("ueWait").value = d.wait_seconds || 180;
+  } catch (e) { /* ignore */ }
+}
+$("btnUeAuto").onclick = ueStart;
+$("btnUeAuto2").onclick = ueStart;
+$("btnUeSave").onclick = async () => {
+  const extra = ($("ueArgs").value || "").trim();
+  const cfg = {
+    engine_exe: $("ueEngine").value.trim(),
+    project: $("ueProject").value.trim(),
+    map: $("ueMap").value.trim() || "GISMap",
+    wait_seconds: parseInt($("ueWait").value, 10) || 180,
+    extra_args: extra ? extra.split(/\s+/) : []
+  };
+  const r = await api("/api/ue/config", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(cfg)
+  });
+  const msg = $("ueCfgMsg");
+  msg.textContent = r.ok ? "已保存 \u2713（config/ue_launch.json）" : "保存失败";
+  msg.className = "hint small " + (r.ok ? "ok" : "err");
+  setTimeout(() => { msg.textContent = ""; }, 4000);
+};
+
+// ---------- 标签页 ----------
+function ensureEditor() {
+  if ($("editorFrame")) return;
+  const fr = document.createElement("iframe");
+  fr.id = "editorFrame";
+  fr.src = "/";
+  fr.title = "场景编辑器";
+  $("view-editor").appendChild(fr);
+}
+function showView(v) {
+  const isConsole = v === "console";
+  $("view-console").classList.toggle("active", isConsole);
+  $("view-editor").classList.toggle("active", !isConsole);
+  $("tabConsole").classList.toggle("active", isConsole);
+  $("tabEditor").classList.toggle("active", !isConsole);
+  if (isConsole) loadScenes();
+  else ensureEditor();
+}
+$("tabConsole").onclick = () => showView("console");
+$("tabEditor").onclick = () => showView("editor");
+$("btnEditor").onclick = () => showView("editor");
+
+// ---------- 轮询 / 任务 ----------
 async function poll() {
-  const st = await api("/api/status");
-  // UE 状态
-  const ueDot = $("ueDot");
-  ueDot.className = "dot " + (st.ue ? "ok" : "bad");
-  $("ueText").textContent = st.ue ? "已连接" : "未连接";
-  // 任务状态
+  let st;
+  try { st = await api("/api/status"); } catch (e) { return; }
+  renderUe(st);
   busy = st.running;
   const pill = $("taskPill");
   if (st.running) { pill.style.display = "inline-flex"; $("taskLabel").textContent = st.label; }
@@ -189,7 +340,6 @@ async function poll() {
     $("taskLabel").textContent = "已完成 (退出码 " + st.code + ")";
     setTimeout(() => { pill.style.display = "none"; }, 6000);
   } else pill.style.display = "none";
-  // 日志增量
   if (st.log_len > since) {
     const lg = await api("/api/log?since=" + since);
     since = lg.total;
@@ -252,10 +402,10 @@ $("btnCheck").onclick = async () => {
   const st = await api("/api/status");
   log("UE 连接: " + (st.ue ? "正常（端口 8990）" : "未连接"), st.ue ? "done" : "err");
 };
-$("btnEditor").onclick = () => window.open("/", "_blank");
 $("sceneSel").onchange = () => { $("sceneText").textContent = $("sceneSel").value || "默认 100x10"; };
 
 loadScenes();
+loadUeCfg();
 poll();
 setInterval(poll, 900);
 </script>

@@ -1,0 +1,12 @@
+{
+  "engine_exe": "D:\\UE_5.7\\Engine\\Binaries\\Win64\\UnrealEditor.exe",
+  "project": "D:\\ProjectAirSim-main\\unreal\\Blocks 5.7\\Blocks.uproject",
+  "map": "GISMap",
+  "extra_args": [
+    "-game",
+    "-windowed",
+    "-ResX=1280",
+    "-ResY=720"
+  ],
+  "wait_seconds": 180
+}

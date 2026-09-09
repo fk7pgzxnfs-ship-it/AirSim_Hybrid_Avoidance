@@ -2,6 +2,8 @@
 
 > **使用说明**：[docs/USER_GUIDE.md](docs/USER_GUIDE.md)（从零开始的操作手册、命令参考与常见问题）
 
+> **v3.1（2026-09-09）**：弹窗集成**场景编辑器**（顶部「控制台 / 场景编辑器」标签页切换，窗口内拖拽编辑场景）；新增**自动连接 UE**——一键启动 UE 进程并等待端口 8990，路径在弹窗「系统」或 `config/ue_launch.json` 配置。
+
 > **v3.0.2（2026-08-22）**：新增独立 Windows 应用 **`AirSim控制台.exe`**（双击即弹，无黑色控制台框，Win11 现代风格）；数据目录 = exe 所在目录，按钮任务自动调用本机 Python 执行飞行/训练脚本。打包复现：`python scripts/tools/build_exe.py`。
 
 > **v3.0.1（2026-08-21）**：`python main.py` 默认弹出 **Windows 原生控制台窗口**（WebView2 内核渲染，Win11 现代风格：场景/飞行/训练评估/系统分类按钮 + 实时日志），替换复古 tkinter 窗口；`--browser` 可回退浏览器。
@@ -95,7 +97,7 @@ AirSim Hybrid Avoidance/
 ├── main.py
 ├── AirSim控制台.exe           # v3.0.2 独立 Windows 应用（双击即弹，无黑框）                   # v3 统一入口（默认弹出 Windows 原生窗口 + 命令行直跑）
 ├── scene_config.py             # v3 场景配置模块（加载/校验/可达性/UE 生成/预览）
-├── config/                   # 配置：default.yaml（算法参数）；scenes/ 场景 yaml（v3）+ generated/（生成的 UE jsonc）
+├── config/                   # 配置：default.yaml（算法参数）；ue_launch.json（UE 启动路径，v3.1）；scenes/ 场景 yaml（v3）+ generated/（生成的 UE jsonc）
 ├── airsim_interface/         # 通信层：projectairsim_client.py（UE RPC）、sensor_processor.py
 ├── planning/                 # 传统规划：grid_map.py、a_star.py、potential_field.py
 ├── drl/                      # DRL：env.py（v2.1 奖励塑形）、agent.py、trainer.py、models.py、sim_client.py（训练仿真）
@@ -134,6 +136,7 @@ AirSim Hybrid Avoidance/
 ## 📜 版本历史
 | 版本 | 日期 | 里程碑 |
 |---|---|---|
+| v3.1 | 2026-09-09 | 编辑器集成进弹窗（控制台/场景编辑器标签页）；自动连接 UE（一键启动 + 等待 8990）；UE 路径弹窗内可配置 |
 | v3.0.3 | 2026-08-22 | 修复 python main.py 启动崩溃（stdout 重复包装导致 I/O operation on closed file） |
 | v3.0.2 | 2026-08-22 | 独立 Windows 应用 AirSim控制台.exe（双击即弹，无黑框）；任务自动调用本机 Python；打包脚本 build_exe.py |
 | v3.0.1 | 2026-08-21 | Windows 原生控制台窗口（WebView2 内核，Win11 现代风格）替换 tkinter 复古窗口；`python main.py` 默认弹窗，`--browser` 回退浏览器 |

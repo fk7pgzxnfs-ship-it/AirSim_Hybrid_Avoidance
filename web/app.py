@@ -23,8 +23,10 @@ if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
 import glob
+import json
 import subprocess
 import threading
+import time
 
 from flask import Flask, request, jsonify, send_from_directory
 
@@ -134,6 +136,148 @@ def _read_stdout(proc):
         TASK["proc"] = None
 
 
+# =====================================================================
+# UE 自动连接（启动进程 + 等待端口 8990）
+# =====================================================================
+UE_CFG_FILE = os.path.join(ROOT, "config", "ue_launch.json")
+UE_DEFAULTS = {
+    "engine_exe": r"D:\UE_5.7\Engine\Binaries\Win64\UnrealEditor.exe",
+    "project": r"D:\ProjectAirSim-main\unreal\Blocks 5.7\Blocks.uproject",
+    "map": "GISMap",
+    "extra_args": ["-game", "-windowed", "-ResX=1280", "-ResY=720"],
+    "wait_seconds": 180,
+}
+UE = {"proc": None, "lock": threading.Lock(), "launching": False,
+      "started": None, "error": ""}
+
+
+def _load_ue_cfg():
+    cfg = dict(UE_DEFAULTS)
+    try:
+        with open(UE_CFG_FILE, encoding="utf-8") as f:
+            cfg.update(json.load(f))
+    except Exception:
+        pass
+    return cfg
+
+
+def _save_ue_cfg(cfg):
+    try:
+        os.makedirs(os.path.dirname(UE_CFG_FILE), exist_ok=True)
+        with open(UE_CFG_FILE, "w", encoding="utf-8") as f:
+            json.dump(cfg, f, ensure_ascii=False, indent=2)
+        return True
+    except Exception:
+        return False
+
+
+def _ue_runtime():
+    """只读运行态（不碰文件 IO），供 /api/status 轮询使用"""
+    with UE["lock"]:
+        p = UE["proc"]
+        alive = p is not None and p.poll() is None
+        return {"launching": UE["launching"] or alive,
+                "proc_alive": alive, "error": UE["error"]}
+
+
+def _ue_wait(proc, cfg):
+    wait_s = float(cfg.get("wait_seconds") or 180)
+    deadline = time.time() + wait_s
+    while time.time() < deadline:
+        if proc.poll() is not None:
+            with UE["lock"]:
+                UE["launching"] = False
+                UE["error"] = "UE 进程提前退出 (code=%s)" % proc.returncode
+            return
+        if check_connection():
+            with UE["lock"]:
+                UE["launching"] = False
+                UE["started"] = None
+                UE["error"] = ""
+            return
+        time.sleep(1.0)
+    with UE["lock"]:
+        UE["launching"] = False
+        UE["error"] = "等待连接超时（%ds），请确认 UE 正常启动" % int(wait_s)
+
+
+@app.route("/api/ue")
+def ue_info():
+    cfg = _load_ue_cfg()
+    rt = _ue_runtime()
+    return jsonify({"connected": check_connection(), "launching": rt["launching"],
+                    "proc_alive": rt["proc_alive"], "error": rt["error"],
+                    "config": cfg})
+
+
+@app.route("/api/ue/start", methods=["POST"])
+def ue_start():
+    if check_connection():
+        return jsonify({"ok": True, "connected": True, "message": "UE 已连接（端口 8990）"})
+    with UE["lock"]:
+        if UE["launching"] or (UE["proc"] is not None and UE["proc"].poll() is None):
+            return jsonify({"ok": False, "error": "UE 正在启动中，请稍候"}), 409
+    cfg = _load_ue_cfg()
+    exe = str(cfg.get("engine_exe") or "")
+    proj = str(cfg.get("project") or "")
+    if not os.path.isfile(exe):
+        return jsonify({"ok": False,
+                        "error": "引擎不存在: %s（可在控制台「系统」里设置 UE 路径，或编辑 config/ue_launch.json）" % exe}), 400
+    if not os.path.isfile(proj):
+        return jsonify({"ok": False, "error": "工程不存在: %s" % proj}), 400
+    cmd = [exe, proj, str(cfg.get("map") or "GISMap")] + list(cfg.get("extra_args") or [])
+    try:
+        proc = subprocess.Popen(
+            cmd, cwd=os.path.dirname(exe) or None,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    except Exception as e:
+        return jsonify({"ok": False, "error": "启动 UE 失败: %r" % e}), 500
+    with UE["lock"]:
+        UE["proc"] = proc
+        UE["launching"] = True
+        UE["started"] = time.time()
+        UE["error"] = ""
+    threading.Thread(target=_ue_wait, args=(proc, cfg), daemon=True).start()
+    wait_s = int(cfg.get("wait_seconds") or 180)
+    return jsonify({"ok": True, "connected": False,
+                    "message": "正在启动 UE，等待端口 8990（最长 %d 秒）..." % wait_s})
+
+
+@app.route("/api/ue/stop", methods=["POST"])
+def ue_stop():
+    with UE["lock"]:
+        p = UE["proc"]
+    if p is not None and p.poll() is None:
+        try:
+            p.terminate()
+        except Exception:
+            pass
+        return jsonify({"ok": True})
+    return jsonify({"ok": False, "error": "没有运行中的 UE 进程"}, 400)
+
+
+@app.route("/api/ue/config", methods=["GET"])
+def ue_config_get():
+    return jsonify(_load_ue_cfg())
+
+
+@app.route("/api/ue/config", methods=["POST"])
+def ue_config_save():
+    cfg = _load_ue_cfg()
+    data = request.get_json(force=True) or {}
+    for k in ("engine_exe", "project", "map"):
+        if k in data:
+            cfg[k] = str(data[k] or "").strip()
+    if "wait_seconds" in data:
+        try:
+            cfg["wait_seconds"] = int(data["wait_seconds"])
+        except (TypeError, ValueError):
+            pass
+    if "extra_args" in data:
+        cfg["extra_args"] = [str(a) for a in (data["extra_args"] or [])]
+    ok = _save_ue_cfg(cfg)
+    return jsonify({"ok": ok, "config": cfg})
+
 @app.route("/console")
 def console_page():
     return send_from_directory("static", "console.html")
@@ -146,7 +290,9 @@ def api_status():
         label = TASK["label"] if running else ""
         code = TASK["code"]
         log_len = len(TASK["log"])
-    return jsonify({"ue": check_connection(), "running": running,
+    rt = _ue_runtime()
+    return jsonify({"ue": check_connection(), "ue_launching": rt["launching"],
+                    "ue_error": rt["error"], "running": running,
                     "label": label, "code": code, "log_len": log_len})
 
 
