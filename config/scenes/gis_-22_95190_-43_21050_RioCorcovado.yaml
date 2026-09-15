@@ -1,0 +1,113 @@
+id: Gis_gis_-22_95190_-43_21050_RioCorcovado
+map:
+  x_min: -80.0
+  x_max: 80.0
+  y_min: -300.0
+  y_max: 300.0
+  resolution: 1.0
+start:
+- -4.0
+- -292.0
+goal:
+- -4.0
+- 292.0
+takeoff_height: -12.0
+route:
+  mode: astar
+use_drl: false
+altitude_margin: 2.0
+obstacles:
+- name: B0002
+  x: -19.719454099529386
+  y: -22.84684112092399
+  w: 8.538995720300196
+  h: 8.502822444807563
+  height: 2.94
+  base_z: 0.0
+  kind: building
+- name: B0006
+  x: 28.485472670379707
+  y: -7.292548927381084
+  w: 14.08769204145949
+  h: 22.482797513131025
+  height: 4.4
+  base_z: 0.0
+  kind: building
+- name: B0007
+  x: 10.332937154901668
+  y: -86.31558784760259
+  w: 5.914100930149159
+  h: 13.32349405678275
+  height: 6.34
+  base_z: 0.0
+  kind: building
+- name: B0008
+  x: 17.57632541242956
+  y: -40.688504473157046
+  w: 8.306442222673017
+  h: 11.569618215939869
+  height: 3.62
+  base_z: 0.0
+  kind: building
+- name: B0009
+  x: 21.447159028825748
+  y: -19.626285857912528
+  w: 8.007390517697864
+  h: 7.251523689007655
+  height: 4.98
+  base_z: 0.0
+  kind: building
+- name: B0010
+  x: 28.247352662617864
+  y: 13.574808774506456
+  w: 8.42823449013629
+  h: 17.898025997868853
+  height: 4.34
+  base_z: 0.0
+  kind: building
+- name: B0011
+  x: -38.87415304330557
+  y: -59.1145225686057
+  w: 3.9649090652213985
+  h: 6.533514086829754
+  height: 4.41
+  base_z: 0.0
+  kind: building
+- name: B0012
+  x: 20.915538614727595
+  y: -25.86751458756624
+  w: 5.792346860904427
+  h: 5.23094696334854
+  height: 3.75
+  base_z: 0.0
+  kind: building
+- name: B0015
+  x: -24.89157730702999
+  y: -17.954379979079427
+  w: 4.773420071294712
+  h: 4.8924544121732545
+  height: 12.0
+  base_z: 0.0
+  kind: building
+geo:
+  source: gis-tiles
+  center:
+  - -22.9519
+  - -43.2105
+  extent_m: 900.0
+  home_alt_m: 528.57
+  gis_site: gis_-22_95190_-43_21050_RioCorcovado
+  gis_alt_m: 528.57
+  provider: sat
+gis:
+  scene_type: CustomGIS
+  tiles_dir: C:/Users/13631/Documents/GitHub/AirSim_Hybrid_Avoidance/AirSim Hybrid
+    Avoidance_v1/config/gis_tiles/gis_-22_95190_-43_21050_RioCorcovado
+  tiles_lod_min: 15
+  tiles_lod_max: 17
+  site_id: gis_-22_95190_-43_21050_RioCorcovado
+  provider: sat
+home_geo_point:
+  latitude: -22.9519
+  longitude: -43.2105
+  altitude: 528.5723426075638

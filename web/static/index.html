@@ -2,93 +2,349 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<title>AirSim v3 场景编辑器</title>
+<title>AirSim v5.6 场景编辑器</title>
 <style>
   * { box-sizing: border-box; }
-  body { font-family: "Microsoft YaHei", sans-serif; margin: 0; background: #f5f6f8; color: #222; }
+  body { font-family: "Microsoft YaHei", system-ui, sans-serif; margin: 0; background: #eef1f5; color: #1f2328; font-size: 13px; }
   #wrap { display: flex; height: 100vh; }
-  #side { width: 340px; background: #fff; border-right: 1px solid #ddd; padding: 12px; overflow-y: auto; }
-  #main { flex: 1; display: flex; flex-direction: column; }
-  #toolbar { background: #fff; border-bottom: 1px solid #ddd; padding: 8px 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-  #canvas { flex: 1; }
-  h1 { font-size: 16px; margin: 0 0 10px; }
-  h2 { font-size: 13px; margin: 14px 0 6px; border-bottom: 1px solid #eee; padding-bottom: 4px; color: #444; }
-  label { font-size: 12px; color: #666; display: block; margin-top: 6px; }
-  input[type=number], input[type=text] { width: 100%; padding: 4px 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; }
-  .row { display: flex; gap: 6px; }
-  .row > div { flex: 1; }
-  button { padding: 6px 12px; border: 1px solid #aaa; background: #fff; border-radius: 4px; cursor: pointer; font-size: 13px; }
-  button.primary { background: #2d6cdf; color: #fff; border-color: #2d6cdf; }
-  button.danger { color: #c33; border-color: #c66; }
+  #side { width: 374px; flex: none; background: #f7f9fc; border-right: 1px solid #e3e6ea; overflow-y: auto; padding-bottom: 20px; }
+  #side.collapsed { display: none; }
+  /* 侧栏按窗口宽度分档收缩。旧实现恒为 374px：窗口一窄就把画布挤到几百像素甚至更小，
+     用户会以为“场景刷不出来”，实际是画布被侧栏吃掉了。 */
+  @media (max-width: 1280px) { #side { width: 340px; } }
+  @media (max-width: 1080px) { #side { width: 312px; } }
+  @media (max-width: 900px) { #side { width: 288px; } }
+  @media (max-width: 760px) { #side { width: 258px; } }
+  #main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  #toolbar { background: #fff; border-bottom: 1px solid #e3e6ea; padding: 8px 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  #canvasWrap { position: relative; flex: 1; min-height: 0; background: #fff; }
+  #canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block; }
+  #cvNotice { position: absolute; left: 0; right: 0; top: 0; bottom: 0; display: flex;
+    align-items: center; justify-content: center; pointer-events: none; padding: 16px; }
+  #cvNotice.hide { display: none; }
+  .cv-box { pointer-events: auto; background: rgba(255,255,255,.96); border: 1px solid #e3e6ea;
+    border-radius: 12px; box-shadow: 0 10px 30px rgba(16,24,40,.12);
+    padding: 16px 20px; min-width: 260px; max-width: 84%; text-align: center; }
+  .cv-box h3 { font-size: 14px; margin: 0; font-weight: 600; }
+  .cv-sub { font-size: 12px; color: #667085; line-height: 1.75; margin-top: 6px; }
+  .cv-sub code { background: #eef1f5; padding: 1px 4px; border-radius: 4px; }
+  .cv-bar { height: 6px; border-radius: 4px; background: #eef1f5; margin-top: 12px; overflow: hidden; display: none; }
+  .cv-bar.show { display: block; }
+  #cvBarFill { height: 100%; width: 0; background: #2d6cdf; transition: width .25s linear; }
+  .cv-bar.indet #cvBarFill { width: 35%; animation: slide 1.1s ease-in-out infinite; }
+  .cv-row { display: flex; gap: 8px; justify-content: center; margin-top: 14px; }
+  .cv-row.hide { display: none; }
+  .pill.peek { background: #eaf1ff; border-color: #c3d8ff; color: #1d4ed8; }
+  .brand { display: flex; align-items: baseline; gap: 8px; padding: 12px 14px 2px; }
+  h1 { font-size: 15px; margin: 0; }
+  .ver { font-size: 11px; color: #8a94a3; }
+  h2 { font-size: 13px; margin: 0; font-weight: 600; }
+  label { font-size: 12px; color: #667085; display: block; margin-top: 6px; }
+  input[type=number], input[type=text] { width: 100%; padding: 5px 7px; border: 1px solid #d0d5dd; border-radius: 6px; font-size: 13px; background: #fff; }
+  .row { display: flex; gap: 6px; align-items: flex-end; }
+  .row > div { flex: 1; min-width: 0; }
+  button { padding: 6px 10px; border: 1px solid #d0d5dd; background: #fff; border-radius: 6px; cursor: pointer; font-size: 13px; white-space: nowrap; }
+  button:hover { background: #f2f5fa; }
+  button.primary { background: #2d6cdf; color: #fff; border-color: #2d6cdf; font-weight: 600; }
+  button.primary:hover { background: #245ec7; }
+  button.danger { color: #c33; border-color: #e6a3a3; }
+  .card { background: #fff; border: 1px solid #e3e6ea; border-radius: 10px; margin: 10px 12px 0; overflow: hidden; }
+  .card-head { display: flex; align-items: center; gap: 8px; padding: 9px 12px; background: #f2f5fa; border-bottom: 1px solid #e9edf2; }
+  .card-body { padding: 10px 12px 12px; }
+  .step { display: inline-flex; align-items: center; justify-content: center; width: 19px; height: 19px; border-radius: 50%; background: #2d6cdf; color: #fff; font-size: 11px; flex: none; }
+  .step.mute { background: #9aa4b2; }
+  details.card > summary { cursor: pointer; padding: 9px 12px; font-size: 12px; color: #475467; list-style: none; display: flex; justify-content: space-between; }
+  details.card > summary::-webkit-details-marker { display: none; }
+  details.card > summary::after { content: "展开"; font-size: 11px; color: #98a2b3; }
+  details.card[open] > summary::after { content: "收起"; }
+  .hint { font-size: 12px; color: #7c8698; margin-top: 8px; line-height: 1.6; }
+  #status { font-size: 12px; color: #12805c; margin-top: 8px; }
+  #status.err { color: #c0392b; }
+  select { width: 100%; padding: 5px 6px; border: 1px solid #d0d5dd; border-radius: 6px; font-size: 13px; background: #fff; }
+  #mapPick { height: 220px; border-radius: 8px; border: 1px solid #e3e6ea; background: #e9edf2; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 999px; font-size: 12px; border: 1px solid #e3e6ea; background: #f7f9fc; }
+  .pill .dot { width: 8px; height: 8px; border-radius: 50%; background: #98a2b3; }
+  .pill.on { background: #e7f7ee; border-color: #b7e4c8; color: #0d6b41; }
+  .pill.on .dot { background: #12b76a; }
+  .pill.off { background: #fdecec; border-color: #f5c2c2; color: #b42318; }
+  .pill.off .dot { background: #f04438; }
+  .bar { height: 6px; border-radius: 4px; background: #eef1f5; margin-top: 10px; overflow: hidden; display: none; }
+  .bar.show { display: block; }
+  #gisBarFill { height: 100%; width: 0; background: #2d6cdf; }
+  .bar.indet #gisBarFill { width: 35%; animation: slide 1.1s ease-in-out infinite; }
+  @keyframes slide { 0% { margin-left: -35%; } 100% { margin-left: 100%; } }
+  .spin { width: 13px; height: 13px; border: 2px solid #cfd8e3; border-top-color: #2d6cdf; border-radius: 50%; display: none; }
+  .spin.show { display: inline-block; animation: rot .8s linear infinite; }
+  @keyframes rot { to { transform: rotate(360deg); } }
+  #obsList { max-height: 340px; overflow-y: auto; }
   .obs-item { border: 1px solid #e0e0e0; border-radius: 6px; padding: 8px; margin-top: 8px; background: #fafbfc; }
   .obs-item.selected { border-color: #2d6cdf; box-shadow: 0 0 0 2px rgba(45,108,223,.15); }
   .obs-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
   .obs-head b { font-size: 12px; }
-  .hint { font-size: 12px; color: #888; margin-top: 8px; line-height: 1.6; }
-  #status { font-size: 12px; color: #2a7; margin-left: 8px; }
-  #status.err { color: #c33; }
-  select { padding: 4px 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; }
+  #toolbar b { font-size: 12px; color: #667085; font-weight: 600; }
+  /* ---------- v5.2 交互 ---------- */
+  .hide { display: none !important; }
+  .btnrow { display: flex; gap: 6px; align-items: flex-end; margin-top: 6px; }
+  .btnrow > .grow { flex: 1; min-width: 0; }
+  button.wide { width: 100%; }
+  #saveName { width: 100%; }
+  #gisMsg { line-height: 1.6; }
+  #gisMsg.err, .hint.err { color: #c0392b; }
+  #gisMsg.ok { color: #12805c; }
+  #gisMsg.busy { color: #2d6cdf; }
+  .hint code { background: #eef1f5; padding: 1px 4px; border-radius: 4px; }
+  #toolbar { box-shadow: 0 1px 3px rgba(16,24,40,.06); position: relative; z-index: 2; }
+  /* ---------- v5.5 数据源自检 / 复选框 ---------- */
+  input[type=checkbox] { width: auto; }
+  .chk { display: flex; gap: 7px; align-items: flex-start; margin-top: 9px; font-size: 12px;
+         color: #475467; line-height: 1.55; cursor: pointer; }
+  .chk input { margin-top: 2px; flex: none; }
+  #netList { margin-top: 8px; }
+  .net-row { display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
+             padding: 5px 0; border-top: 1px dashed #eaeef3; font-size: 12px; color: #344054; }
+  .net-row:first-child { border-top: 0; }
+  .net-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: #98a2b3; }
+  .net-dot.ok { background: #12b76a; }
+  .net-dot.bad { background: #f04438; }
+  .net-ms { color: #667085; font-size: 11px; }
+  .net-err { flex: 1 0 100%; color: #b42318; font-size: 11px; line-height: 1.5;
+             word-break: break-all; }
+  #sceneFilter { margin-bottom: 6px; }
 </style>
+<link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css">
+<script src="/static/vendor/leaflet/leaflet.js"></script>
 </head>
 <body>
 <div id="wrap">
   <div id="side">
-    <h1>AirSim v3 场景编辑器</h1>
-    <label>场景文件</label>
-    <div class="row">
-      <div><select id="sceneSel"></select></div>
-      <button id="btnLoad">加载</button>
-      <button id="btnNew">新建</button>
+    <div class="brand"><h1>AirSim 场景编辑器</h1><span class="ver">v5.6</span></div>
+
+    <div class="card">
+      <div class="card-head"><h2>场景文件</h2></div>
+      <div class="card-body">
+        <input type="text" id="sceneFilter" placeholder="筛选场景名（留空=全部）">
+        <select id="sceneSel"></select>
+        <div class="row" style="margin-top:8px">
+          <button id="btnLoad">加载</button>
+          <button id="btnNew">新建</button>
+          <button id="btnCheck">可达性检查</button>
+        </div>
+        <div class="row" style="margin-top:6px">
+          <div style="flex:2"><input type="text" id="saveName" placeholder="保存为…（如 my_scene.yaml）"></div>
+          <button class="primary" id="btnSave">保存</button>
+        </div>
+        <div id="status"></div>
+      </div>
     </div>
-    <h2>地图</h2>
-    <div class="row">
-      <div><label>x_min</label><input type="number" id="x_min" step="1"></div>
-      <div><label>x_max</label><input type="number" id="x_max" step="1"></div>
+
+    <details class="card" id="netCard">
+      <summary>网络数据源自检（场景刷不出来 / 等待很久，先点这里）</summary>
+      <div class="card-body">
+        <div class="hint">预览和生成要联网取 4 类数据，任何一类被挡住都会表现为「卡住 / 刷不出来」。
+          这里逐个探一遍，直接告诉你卡在哪个源（单个源 6 秒超时）。</div>
+        <div class="btnrow" style="margin-top:8px">
+          <button class="grow" id="btnNetCheck">开始检测</button>
+          <button id="btnNetRetry" title="清掉 Overpass 冷却并重新检测（例如刚开了代理/VPN）">重新检测并重试</button>
+        </div>
+        <div id="netList"></div>
+      </div>
+    </details>
+
+    <div class="card">
+      <div class="card-head"><span class="step">1</span><h2>选点：全球任意位置</h2></div>
+      <div class="card-body">
+        <div id="mapPick"></div>
+        <div class="hint" id="mapPickHint">点击地图任意位置选点；也可直接填经纬度，或用下方地名搜索。</div>
+        <div class="row">
+          <div><label>纬度 lat</label><input type="number" id="geoLat" step="0.00001" placeholder="如 35.6905"></div>
+          <div><label>经度 lon</label><input type="number" id="geoLon" step="0.00001" placeholder="如 139.6999"></div>
+        </div>
+        <div class="row">
+          <div><label>范围(m)</label><input type="number" id="geoPickExtent" value="600" min="150" max="3000" step="50"></div>
+          <div style="flex:2"><label>地名搜索</label><input type="text" id="geoSearchQ" placeholder="如 Shinjuku / 东京塔"></div>
+        </div>
+        <div class="row" style="margin-top:6px">
+          <button id="btnGeoSearch">搜索</button>
+          <div style="flex:2"><select id="geoSearchSel"><option value="">（搜索结果）</option></select></div>
+        </div>
+        <div class="row" style="margin-top:6px">
+          <button id="btnGeoReverse">反查地名</button>
+        </div>
+        <div id="geoPickMsg" class="hint"></div>
+      </div>
     </div>
-    <div class="row">
-      <div><label>y_min</label><input type="number" id="y_min" step="1"></div>
-      <div><label>y_max</label><input type="number" id="y_max" step="1"></div>
+
+    <div class="card">
+      <div class="card-head"><span class="step">2</span><h2>走廊参数 / 生成真实场景</h2><span id="gisSpin" class="spin"></span></div>
+      <div class="card-body">
+        <div class="row">
+          <div><label>航程长(m)</label><input type="number" id="gisRouteLen" value="600" step="50" min="50"></div>
+          <div><label>走廊宽(m)</label><input type="number" id="gisRouteWid" value="160" step="10" min="10"></div>
+        </div>
+        <div class="row">
+          <div><label>取数范围(m)</label><input type="number" id="gisExtent" value="1200" step="100" min="150" title="DEM / 影像取数范围，与①的范围(m)自动同步"></div>
+          <div><label>贴图</label><select id="gisProvider"><option value="sat">卫星影像</option><option value="topo">地形图</option></select></div>
+        </div>
+        <label class="chk" title="Overpass/OSM 被网络挡住时勾上它，预览只取真实影像+真实地形，秒出">
+          <input type="checkbox" id="gisSkipBld">
+          <span>跳过在线建筑轮廓（Overpass 取不到时勾选，预览变成纯地形、秒出）</span>
+        </label>
+        <div class="btnrow" style="margin-top:8px">
+          <button class="primary grow" id="btnGisPeek" title="按当前选点/走廊参数重新取真实影像与建筑（不写盘）">刷新预览（不写盘）</button>
+          <button id="btnGisCancel" class="hide" title="停止等待；后台仍会跑完并缓存，下次点刷新秒开">取消等待</button>
+        </div>
+        <div class="btnrow">
+          <button class="primary wide" id="btnGisBuild" title="把该选区的真实 DEM 地形 + OSM 建筑写成 3D 瓦片并落到 config/scenes">生成真实场景（写盘）</button>
+        </div>
+        <div class="bar" id="gisBar"><div id="gisBarFill"></div></div>
+        <div id="gisMsg" class="hint"></div>
+        <div class="hint">第 1 步选点、第 2 步调走廊参数：左栏一改，右侧立刻按新参数重画该选区的<b>真实影像预览</b>（不写盘）。满意后再点「生成真实场景」写入 3D 瓦片。</div>
+      </div>
     </div>
-    <div class="row">
-      <div><label>分辨率(m)</label><input type="number" id="resolution" step="0.1" value="0.5"></div>
-      <div><label>巡航高度</label><input type="number" id="takeoff_height" step="0.5" value="-12"></div>
+
+    <div class="card">
+      <div class="card-head"><span class="step">3</span><h2>已生成的真实场景</h2></div>
+      <div class="card-body">
+        <div class="row">
+          <div style="flex:3"><select id="gisSiteSel"><option value="">（已生成的真实场景）</option></select></div>
+          <button id="btnGisLoad">加载</button>
+        </div>
+        <div class="row" style="margin-top:6px">
+          <button id="btnGisPreview" title="按当前场景地图矩形重新渲染底图">重绘底图</button>
+        </div>
+      </div>
     </div>
-    <h2>起点 / 终点（画布上可直接拖拽）</h2>
-    <div class="row">
-      <div><label>起点 x</label><input type="number" id="sx" step="0.5"></div>
-      <div><label>起点 y</label><input type="number" id="sy" step="0.5"></div>
-    </div>
-    <div class="row">
-      <div><label>终点 x</label><input type="number" id="gx" step="0.5"></div>
-      <div><label>终点 y</label><input type="number" id="gy" step="0.5"></div>
-    </div>
-    <h2>障碍物（红色矩形，可拖拽）</h2>
-    <div id="obsList"></div>
-    <div style="margin-top:10px">
-      <button id="btnAddObs">+ 添加障碍物</button>
-    </div>
-    <div style="margin-top:14px; display:flex; gap:8px;">
-      <button class="primary" id="btnSave">保存</button>
-      <button id="btnCheck">可达性检查</button>
-    </div>
-    <div id="status"></div>
-    <div class="hint">
-      操作：拖拽红框移动障碍物，拖拽绿点/橙星移动起终点；双击画布空白处添加障碍物；点击障碍物选中后在列表改尺寸。<br>
-      保存前建议先做可达性检查（A*）。
-    </div>
+
+    <details class="card">
+      <summary>高级：地图矩形 / 分辨率 / 巡航高度</summary>
+      <div class="card-body">
+        <div class="row">
+          <div><label>x_min</label><input type="number" id="x_min" step="1"></div>
+          <div><label>x_max</label><input type="number" id="x_max" step="1"></div>
+        </div>
+        <div class="row">
+          <div><label>y_min</label><input type="number" id="y_min" step="1"></div>
+          <div><label>y_max</label><input type="number" id="y_max" step="1"></div>
+        </div>
+        <div class="row">
+          <div><label>分辨率(m)</label><input type="number" id="resolution" step="0.1" value="0.5"></div>
+          <div><label>巡航高度</label><input type="number" id="takeoff_height" step="0.5" value="-12" title="NED 负值向上；巡航高度 = |takeoff|"></div>
+        </div>
+      </div>
+    </details>
+
+    <details class="card" id="detStartGoal">
+      <summary>高级：起点 / 终点</summary>
+      <div class="card-body">
+        <div class="row">
+          <div><label>起点 x</label><input type="number" id="sx" step="0.5"></div>
+          <div><label>起点 y</label><input type="number" id="sy" step="0.5"></div>
+        </div>
+        <div class="row">
+          <div><label>终点 x</label><input type="number" id="gx" step="0.5"></div>
+          <div><label>终点 y</label><input type="number" id="gy" step="0.5"></div>
+        </div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary>高级：障碍物列表</summary>
+      <div class="card-body">
+        <div id="obsList"></div>
+        <div style="margin-top:10px"><button id="btnAddObs">+ 添加障碍物</button></div>
+        <div class="hint">红=落地柱、蓝虚线=悬浮、灰=建筑。画布上可拖拽；双击空白处添加。</div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary>旧版 v4 功能（盒式近似城市 / 随机障碍）</summary>
+      <div class="card-body">
+        <div class="hint">这是 v4 的 2D 盒式路径：建筑拉成方块近似，<b>不含真实地形</b>。要真实地形+真实建筑请用上面 ①②。</div>
+        <label>预置城市</label>
+        <select id="geoPreset"></select>
+        <div class="row">
+          <div><label>范围(m)</label><input type="number" id="geoExtent" value="400" min="150" max="1500" step="50"></div>
+          <div><label>自定义地名</label><input type="text" id="geoPlace" placeholder="如 Manhattan"></div>
+        </div>
+        <div class="row" style="margin-top:6px">
+          <button id="btnGeoImport">盒式导入</button>
+          <button id="btnGeoRefresh">在线刷新</button>
+          <button id="btnGeoReal">真实场景</button>
+        </div>
+        <div id="geoMsg" class="hint"></div>
+        <label>随机障碍物</label>
+        <div class="row">
+          <div><label>数量</label><input type="number" id="randCount" value="4" min="1" max="60"></div>
+          <div><label>悬浮比例(%)</label><input type="number" id="randFloat" value="30" min="0" max="100"></div>
+        </div>
+        <div class="row">
+          <div><label>宽 如 1.5-3</label><input type="text" id="randW" value="1.5-3"></div>
+          <div><label>深 如 1.5-3</label><input type="text" id="randD" value="1.5-3"></div>
+        </div>
+        <div class="row">
+          <div><label>高度 如 10-16</label><input type="text" id="randH" value="10-16"></div>
+          <div><label>间距(m)</label><input type="number" id="randGap" value="2.5" min="0" step="0.5"></div>
+        </div>
+        <div class="row">
+          <div><label>模式</label><select id="randMode"><option value="append">追加</option><option value="replace">替换全部</option></select></div>
+          <div><label>随机种子</label><input type="text" id="randSeed" placeholder="留空=随机"></div>
+        </div>
+        <button id="btnRand" style="margin-top:6px">随机生成</button>
+        <div id="randMsg" class="hint"></div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary>高级：瓦片生成参数（LOD / 网格 / 离线）</summary>
+      <div class="card-body">
+        <div class="row">
+          <div><label>地形层级 LOD</label><input type="number" id="gisLod" value="17" step="1" min="12" max="19"></div>
+          <div><label>外扩环数</label><input type="number" id="gisRings" value="2" step="1" min="0" max="3"></div>
+        </div>
+        <div class="row">
+          <div><label>地形网格</label><input type="number" id="gisGrid" value="64" step="8" min="8" max="256"></div>
+          <div><label>取数模式</label><select id="gisOffline"><option value="0">在线拉取</option><option value="1">仅用本地缓存</option></select></div>
+        </div>
+      </div>
+    </details>
   </div>
+
   <div id="main">
     <div id="toolbar">
-      <b>场景: </b><span id="sceneName">未命名</span>
+      <button id="sideToggle" title="收起 / 展开左侧面板（快捷键 Ctrl+B）">◀ 面板</button>
+      <span id="uePill" class="pill off"><span class="dot"></span><span id="uePillText">正在检测 UE…</span></span>
+      <b>场景</b><span id="sceneName">未命名</span>
+      <span id="peekPill" class="pill peek hide">预览态（画布只读）</span>
+      <button id="btnExitPeek" class="hide" title="退出预览：画布回到当前场景，可继续拖拽编辑">退出预览</button>
       <span id="msg"></span>
     </div>
-    <canvas id="canvas"></canvas>
+    <div id="canvasWrap">
+      <canvas id="canvas"></canvas>
+      <div id="cvNotice" class="hide">
+        <div class="cv-box">
+          <h3 id="cvTitle"></h3>
+          <div class="cv-sub" id="cvSub"></div>
+          <div class="cv-bar" id="cvBar"><div id="cvBarFill"></div></div>
+          <div class="cv-row hide" id="cvRow">
+            <button class="primary hide" id="cvRetry">重试</button>
+            <button class="hide" id="cvCancel">取消等待</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 <script>
 "use strict";
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
+window.addEventListener("error", function (ev) {
+  const el = document.getElementById("msg");
+  if (!el) return;
+  el.textContent = "脚本错误: " + (ev && ev.message ? ev.message : String(ev));
+  el.style.color = "#c0392b";
+  el.style.fontWeight = "600";
+});
 let scene = {
   id: "MyScene",
   map: { x_min: 0, x_max: 100, y_min: -5, y_max: 5, resolution: 0.5 },
@@ -101,29 +357,107 @@ let sceneName = "未命名";
 let selectedObs = null;
 let drag = null; // {type:'obs'|'start'|'goal', idx}
 
+// 画布尺寸以画布自身可见盒子为准。旧实现量 #main（含工具栏）导致背衬高于可见区，
+// 且只在 window.resize 时更新：iframe 首帧 / 侧栏变宽都不会重算，尺寸为 0 时画布就一直空白。
+let cvW = 0, cvH = 0;
 function resize() {
-  const r = canvas.parentElement.getBoundingClientRect();
-  canvas.width = r.width - 2; canvas.height = r.height - 2;
+  const wrap = document.getElementById("canvasWrap");
+  if (!wrap) return;
+  const r = wrap.getBoundingClientRect();
+  const w = Math.max(1, Math.round(r.width));
+  const h = Math.max(1, Math.round(r.height));
+  if (w === cvW && h === cvH) { draw(); return; }
+  cvW = w; cvH = h;
+  canvas.width = w;
+  canvas.height = h;
   draw();
 }
+function initCanvasSize() {
+  resize();
+  requestAnimationFrame(resize);   // iframe 首帧布局未就绪时补一次
+  setTimeout(resize, 120);
+  setTimeout(resize, 400);
+  if (window.ResizeObserver) {
+    try { new ResizeObserver(function () { resize(); }).observe(document.getElementById("canvasWrap")); }
+    catch (e) { /* 老内核无 ResizeObserver：退回 window.resize */ }
+  }
+}
 window.addEventListener("resize", resize);
+window.addEventListener("orientationchange", resize);
+document.addEventListener("visibilitychange", function () { if (!document.hidden) resize(); });
+
+// ---------- v5.4 左栏可收起 + 窄窗口自适应 ----------
+// 收起只改 display，不触发 window.resize；老内核没有 ResizeObserver 时画布尺寸不会重算，
+// 所以这里显式调 resize()。
+const sideEl = document.getElementById("side");
+const sideToggleEl = document.getElementById("sideToggle");
+function applySideCollapsed(collapsed) {
+  collapsed = !!collapsed;
+  sideEl.classList.toggle("collapsed", collapsed);
+  sideToggleEl.textContent = collapsed ? "\u25b6 面板" : "\u25c0 面板";
+  sideToggleEl.title = (collapsed ? "展开" : "收起") + "左侧面板（快捷键 Ctrl+B）";
+  try { localStorage.setItem("airsim.sideCollapsed", collapsed ? "1" : "0"); } catch (e) { }
+  requestAnimationFrame(resize);
+}
+function toggleSide() { applySideCollapsed(!sideEl.classList.contains("collapsed")); }
+(function initSide() {
+  let stored = null;
+  try { stored = localStorage.getItem("airsim.sideCollapsed"); } catch (e) { }
+  // 没有历史偏好且窗口很窄时默认收起，保证首屏画布至少 500px 宽。
+  let collapsed = stored === "1";
+  if (stored === null && document.documentElement.clientWidth < 820) collapsed = true;
+  applySideCollapsed(collapsed);
+  sideToggleEl.addEventListener("click", toggleSide);
+  document.addEventListener("keydown", function (ev) {
+    if ((ev.ctrlKey || ev.metaKey) && (ev.key === "b" || ev.key === "B")) {
+      ev.preventDefault(); toggleSide();
+    }
+  });
+})();
+
+// ---------- v5.1 预览态：左栏一改，右侧画布立刻切到该选区真实影像 ----------
+let peekView = null;   // {img, footprints, scene, plan, lat, lon}（尚未生成 3D 的预览）
+let peekSeq = 0, peekTimer = null, peekBusy = false;
+let peekJobKey = null, peekPollTimer = null, peekTickTimer = null;
+let peekProgress = 0, peekStageText = "", peekT0 = 0;
+let peekDeadlineMs = 45000;   // 本次刷新的总预算，用于给"还要等多久"倒计时
+let peekErr = "";   // 非空 = 上次刷新失败，画布中央显示错误卡 + 重试
+let peekLastSec = -1;
+function mapRect() { return peekView ? peekView.scene.map : scene.map; }
+function clearPeek() {
+  peekView = null; peekSeq++;
+  if (peekTimer) { clearTimeout(peekTimer); peekTimer = null; }
+  peekEndUi();
+}
+// 退出预览：画布回到当前场景（可继续拖拽编辑），不再让画布被预览锁住
+function exitPeek(why) {
+  const had = !!peekView;
+  clearPeek();
+  if (had) gisMsg("已退出预览" + (why ? "（" + why + "）" : "") +
+                  "：画布回到当前场景，可继续拖拽编辑；需要时点「刷新预览」", false);
+  draw();
+}
 
 function worldToScreen(x, y) {
-  const pad = 40;
-  const xr = scene.map.x_max - scene.map.x_min;
-  const yr = scene.map.y_max - scene.map.y_min;
-  const scale = Math.min((canvas.width - 2*pad) / xr, (canvas.height - 2*pad) / yr);
-  const cx = canvas.width / 2, cy = canvas.height / 2;
-  const mx = (scene.map.x_min + scene.map.x_max) / 2;
-  const my = (scene.map.y_min + scene.map.y_max) / 2;
+  const M = mapRect();
+  const W = Math.max(1, canvas.width), H = Math.max(1, canvas.height);
+  const xr = Math.max(1e-6, M.x_max - M.x_min);
+  const yr = Math.max(1e-6, M.y_max - M.y_min);
+  // 留白随画布自适应并有下限：旧实现 pad 固定 40，小窗口下 W-80 会越界/为负，地图矩形退化成几像素
+  const pad = Math.max(4, Math.min(40, Math.min(W, H) * 0.05));
+  const scale = Math.max(1e-6, Math.min((W - 2 * pad) / xr, (H - 2 * pad) / yr));
+  const cx = W / 2, cy = H / 2;
+  const mx = (M.x_min + M.x_max) / 2;
+  const my = (M.y_min + M.y_max) / 2;
   return [cx + (x - mx) * scale, cy - (y - my) * scale, scale];
 }
 
 function screenToWorld(px, py) {
   const r = worldToScreen(0, 0);
+  const M = mapRect();
   const scale = r[2], cx = canvas.width / 2, cy = canvas.height / 2;
-  const mx = (scene.map.x_min + scene.map.x_max) / 2;
-  const my = (scene.map.y_min + scene.map.y_max) / 2;
+  const mx = (M.x_min + M.x_max) / 2;
+  const my = (M.y_min + M.y_max) / 2;
   return [(px - cx) / scale + mx, (cy - py) / scale + my];
 }
 
@@ -131,52 +465,181 @@ function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle = "#fafbfc";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-  const r = worldToScreen(0, 0);
-  const scale = r[2];
-  const [x0, y0] = worldToScreen(scene.map.x_min, scene.map.y_max);
-  const [x1, y1] = worldToScreen(scene.map.x_max, scene.map.y_min);
-  // 地图边界
+  const R = mapRect();
+  const scale = worldToScreen(0, 0)[2];
+  const [x0, y0] = worldToScreen(R.x_min, R.y_max);
+  const [x1, y1] = worldToScreen(R.x_max, R.y_min);
+  const RW = x1 - x0, RH = y1 - y0;
   ctx.strokeStyle = "#333"; ctx.lineWidth = 2;
-  ctx.strokeRect(x0, y0, x1 - x0, y1 - y0);
-  // 网格 5m
+  ctx.strokeRect(x0, y0, RW, RH);
+  // 真实影像底图：像素列 u=东西、行 v=南北(v=0 最北)；画布横轴=北、纵轴=东，
+  // 旋转 + 南北翻转后铺满地图矩形：screenX = x1-(v/H)*RW，screenY = y1-(u/W)*RH
+  const base = peekView ? peekView.img : gisOverlay.img;
+  if (base) {
+    const iw = base.naturalWidth || base.width;
+    const ih = base.naturalHeight || base.height;
+    if (iw > 0 && ih > 0) {
+      ctx.save();
+      ctx.beginPath(); ctx.rect(x0, y0, RW, RH); ctx.clip();
+      ctx.transform(0, -RH / iw, -RW / ih, 0, x1, y1);
+      try { ctx.drawImage(base, 0, 0); } catch (e) { }
+      ctx.restore();
+    }
+  }
   ctx.strokeStyle = "#e2e2e2"; ctx.lineWidth = 1;
-  for (let gx = Math.ceil(scene.map.x_min/5)*5; gx <= scene.map.x_max; gx += 5) {
-    const [ax, ay] = worldToScreen(gx, scene.map.y_min);
-    const [bx, by] = worldToScreen(gx, scene.map.y_max);
+  for (let gx = Math.ceil(R.x_min/5)*5; gx <= R.x_max; gx += 5) {
+    const [ax, ay] = worldToScreen(gx, R.y_min);
+    const [bx, by] = worldToScreen(gx, R.y_max);
     ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
   }
-  for (let gy = Math.ceil(scene.map.y_min/5)*5; gy <= scene.map.y_max; gy += 5) {
-    const [ax, ay] = worldToScreen(scene.map.x_min, gy);
-    const [bx, by] = worldToScreen(scene.map.x_max, gy);
+  for (let gy = Math.ceil(R.y_min/5)*5; gy <= R.y_max; gy += 5) {
+    const [ax, ay] = worldToScreen(R.x_min, gy);
+    const [bx, by] = worldToScreen(R.x_max, gy);
     ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
   }
-  // 直线路线
+  // 真实建筑轮廓（OSM 多边形，NED 坐标）：预览态用预览的、否则用已生成站点的
+  const fps = peekView ? (peekView.footprints || []) : (gisOverlay.footprints || []);
+  if (fps.length) {
+    ctx.save();
+    ctx.beginPath(); ctx.rect(x0, y0, RW, RH); ctx.clip();
+    ctx.fillStyle = "rgba(130,140,155,0.45)";
+    ctx.strokeStyle = "rgba(80,90,105,0.85)";
+    ctx.lineWidth = 1;
+    for (let fi = 0; fi < fps.length; fi++) {
+      const poly = fps[fi].poly || [];
+      if (poly.length < 3) continue;
+      ctx.beginPath();
+      for (let pi = 0; pi < poly.length; pi++) {
+        const sp = worldToScreen(poly[pi][0], poly[pi][1]);
+        if (pi === 0) ctx.moveTo(sp[0], sp[1]); else ctx.lineTo(sp[0], sp[1]);
+      }
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+    }
+    ctx.restore();
+  }
+  if (!peekView) drawGisPending(x0, y0, x1, y1);
+  // 预览态画「将要生成」的走廊/起终点/障碍，其余画当前场景
+  const S = peekView ? peekView.scene : scene;
+  const obs = S.obstacles || [];
+  const [sx0, sy0] = worldToScreen(S.start[0], S.start[1]);
+  const [gx0, gy0] = worldToScreen(S.goal[0], S.goal[1]);
   ctx.strokeStyle = "#2d6cdf"; ctx.lineWidth = 2; ctx.setLineDash([8, 6]);
-  const [sx0, sy0] = worldToScreen(scene.start[0], scene.start[1]);
-  const [gx0, gy0] = worldToScreen(scene.goal[0], scene.goal[1]);
   ctx.beginPath(); ctx.moveTo(sx0, sy0); ctx.lineTo(gx0, gy0); ctx.stroke();
   ctx.setLineDash([]);
-  // 障碍物
-  scene.obstacles.forEach(function(o, i) {
+  obs.forEach(function(o, i) {
     const [ox, oy] = worldToScreen(o.x - o.w/2, o.y - o.h/2);
     const [ox2, oy2] = worldToScreen(o.x + o.w/2, o.y + o.h/2);
-    ctx.fillStyle = (selectedObs === i) ? "#ff5a5a" : "#e5484d";
-    ctx.strokeStyle = "#8f1d1d";
-    ctx.lineWidth = (selectedObs === i) ? 3 : 1.5;
+    const floating = (o.base_z||0) > 0;
+    const isBuild = o.kind === "building";
+    ctx.fillStyle = floating ? "#5b9bd5" : (isBuild ? "#a9b2c0" : "#e5484d");
+    ctx.strokeStyle = floating ? "#1f4e79" : (isBuild ? "#5c6773" : "#8f1d1d");
+    if (floating) ctx.setLineDash([7,5]);
+    ctx.lineWidth = (!peekView && selectedObs === i) ? 3 : 1.5;
     ctx.fillRect(ox, oy, ox2 - ox, oy2 - oy);
     ctx.strokeRect(ox, oy, ox2 - ox, oy2 - oy);
-    ctx.fillStyle = "#fff";
-    ctx.font = Math.max(11, 12 * scale / 6) + "px sans-serif";
-    ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText(o.name, (ox + ox2)/2, (oy + oy2)/2);
+    ctx.setLineDash([]);
+    if (!isBuild || obs.length <= 60) {
+      ctx.fillStyle = "#fff";
+      ctx.font = Math.max(10, 11 * scale / 6) + "px sans-serif";
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(o.name, (ox + ox2)/2, (oy + oy2)/2);
+    }
   });
-  // 起点
   ctx.fillStyle = "#22a04b"; ctx.beginPath(); ctx.arc(sx0, sy0, 9, 0, 2*Math.PI); ctx.fill();
   ctx.fillStyle = "#fff"; ctx.font = "10px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
   ctx.fillText("S", sx0, sy0);
-  // 终点
   ctx.fillStyle = "#e8930c"; ctx.beginPath(); ctx.arc(gx0, gy0, 11, 0, 2*Math.PI); ctx.fill();
   ctx.fillStyle = "#fff"; ctx.font = "10px sans-serif"; ctx.fillText("G", gx0, gy0);
+  if (peekView) {
+    const pl = peekView.plan;
+    const txt = "预览（未生成）: " + peekView.lat.toFixed(5) + ", " + peekView.lon.toFixed(5) +
+      "  走廊 " + Math.round(pl.route_len_m) + "m x " + Math.round(pl.route_width_m) + "m" +
+      "  障碍 " + obs.length + "  建筑轮廓 " + fps.length +
+      (pl.reachable ? "  A*可达" : "  A*不可达");
+    ctx.font = "12px sans-serif"; ctx.textAlign = "left"; ctx.textBaseline = "top";
+    const bw = ctx.measureText(txt).width + 16;
+    ctx.fillStyle = "rgba(45,108,223,0.88)";
+    ctx.fillRect(x0 + 8, y0 + 8, bw, 22);
+    ctx.fillStyle = "#fff";
+    ctx.fillText(txt, x0 + 16, y0 + 13);
+  }
+  updateNotice();
+}
+
+// ---------- 画布中央状态卡（HTML 覆盖层，带真实按钮）：刷新进度 / 失败重试 / 空状态引导 ----------
+let cvRetryFn = null, cvSig = "";
+function esc(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+function cvShow(cfg) {
+  const n = document.getElementById("cvNotice");
+  if (!n) return;
+  if (!cfg) {
+    if (cvSig !== "") { n.classList.add("hide"); cvSig = ""; }
+    return;
+  }
+  const sig = JSON.stringify([cfg.title, cfg.sub, cfg.progress, !!cfg.onRetry, !!cfg.onCancel]);
+  if (sig === cvSig) return;
+  cvSig = sig;
+  n.classList.remove("hide");
+  document.getElementById("cvTitle").textContent = cfg.title || "";
+  document.getElementById("cvSub").innerHTML = cfg.sub || "";
+  const bar = document.getElementById("cvBar");
+  if (cfg.progress === undefined || cfg.progress === null) bar.className = "cv-bar";
+  else if (cfg.progress === "indet") bar.className = "cv-bar show indet";
+  else {
+    bar.className = "cv-bar show";
+    document.getElementById("cvBarFill").style.width =
+      Math.max(2, Math.min(100, Math.round(cfg.progress * 100))) + "%";
+  }
+  cvRetryFn = cfg.onRetry || null;
+  document.getElementById("cvRetry").classList.toggle("hide", !cfg.onRetry);
+  document.getElementById("cvCancel").classList.toggle("hide", !cfg.onCancel);
+  document.getElementById("cvRow").classList.toggle("hide", !cfg.onRetry && !cfg.onCancel);
+}
+function cvBusy(title, sub, progress, onCancel) {
+  cvSig = "";   // 标题里带秒数，每次都要重写
+  cvShow({ title: title, sub: sub, progress: progress, onCancel: onCancel });
+}
+function updateNotice() {
+  const pill = document.getElementById("peekPill");
+  const bx = document.getElementById("btnExitPeek");
+  const inPeek = !!peekView;
+  if (pill) pill.classList.toggle("hide", !inPeek);
+  if (bx) bx.classList.toggle("hide", !inPeek);
+  if (peekBusy) {
+    const sec = Math.max(0, Math.round((Date.now() - peekT0) / 1000));
+    const pct = Math.round((peekProgress || 0) * 100);
+    cvBusy("正在刷新预览 " + pct + "% · 已用 " + sec + " 秒",
+           peekStageText || "准备中…",
+           peekProgress > 0 ? peekProgress : "indet", cancelPeek);
+    return;
+  }
+  if (buildBusy) {
+    const pct = Math.round((buildProgress || 0) * 100);
+    cvBusy("正在生成真实场景（写盘）" + pct + "%",
+           buildMsg || "首次生成需 30 秒~数分钟",
+           buildProgress > 0 ? buildProgress : "indet", null);
+    return;
+  }
+  if (peekErr) {
+    cvShow({ title: "刷新预览失败",
+             sub: esc(peekErr) +
+                  "<br>可在左栏「网络数据源自检」看清是哪个源不可达；"
+                  + "若只是 OSM(Overpass) 取不到建筑，勾选 ② 的「跳过在线建筑轮廓」即可秒出纯地形预览。",
+             progress: null,
+             onRetry: retryGisPeek });
+    return;
+  }
+  if (!peekView && !gisOverlay.img && !gisOverlay.loading && !gisDirty) {
+    cvShow({ title: "当前场景没有真实影像底图",
+             sub: "① 在全球地图点选位置（或直接填经纬度、用地名搜索）"
+                  + "<br>② 点「刷新预览」→ 右侧立刻看到该地点的真实影像 + 真实建筑"
+                  + "<br>③ 满意后点「生成真实场景（写盘）」落到 3D 瓦片",
+             progress: null });
+    return;
+  }
+  cvShow(null);
 }
 
 function hitTest(px, py) {
@@ -193,6 +656,7 @@ function hitTest(px, py) {
 function scaleAt() { return worldToScreen(0, 0)[2]; }
 
 canvas.addEventListener("mousedown", function(e) {
+  if (peekView) { setStatus("当前是预览态（画布只读）：点右上方「退出预览」回到场景编辑，或点「生成真实场景（写盘）」落盘", true); return; }
   const rect = canvas.getBoundingClientRect();
   const px = e.clientX - rect.left, py = e.clientY - rect.top;
   const hit = hitTest(px, py);
@@ -218,9 +682,10 @@ canvas.addEventListener("mousemove", function(e) {
 });
 canvas.addEventListener("mouseup", function() { drag = null; });
 canvas.addEventListener("dblclick", function(e) {
+  if (peekView) { setStatus("当前是预览态（画布只读）：点右上方「退出预览」回到场景编辑，或点「生成真实场景（写盘）」落盘", true); return; }
   const rect = canvas.getBoundingClientRect();
   const [wx, wy] = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
-  const o = { name: "Obstacle" + (scene.obstacles.length + 1), x: Math.round(wx*10)/10, y: Math.round(wy*10)/10, w: 2, h: 2, height: 14 };
+  const o = { name: "Obstacle" + (scene.obstacles.length + 1), x: Math.round(wx*10)/10, y: Math.round(wy*10)/10, w: 2, h: 2, height: 14, base_z: 0, kind: "column" };
   scene.obstacles.push(o);
   selectedObs = scene.obstacles.length - 1;
   syncPanel(); draw();
@@ -238,16 +703,25 @@ function syncPanel() {
   document.getElementById("gx").value = scene.goal[0];
   document.getElementById("gy").value = scene.goal[1];
   renderObsList();
+  if (selectedObs !== null && selectedObs !== undefined) {
+    const box = document.getElementById("obsList");
+    const det = box && box.closest ? box.closest("details") : null;
+    if (det) det.open = true;
+  }
+}
+function numOr(id, fallback) {
+  const v = parseFloat(document.getElementById(id).value);
+  return isNaN(v) ? fallback : v;
 }
 function readPanel() {
-  scene.map.x_min = parseFloat(document.getElementById("x_min").value);
-  scene.map.x_max = parseFloat(document.getElementById("x_max").value);
-  scene.map.y_min = parseFloat(document.getElementById("y_min").value);
-  scene.map.y_max = parseFloat(document.getElementById("y_max").value);
-  scene.map.resolution = parseFloat(document.getElementById("resolution").value);
-  scene.takeoff_height = parseFloat(document.getElementById("takeoff_height").value);
-  scene.start = [parseFloat(document.getElementById("sx").value), parseFloat(document.getElementById("sy").value)];
-  scene.goal = [parseFloat(document.getElementById("gx").value), parseFloat(document.getElementById("gy").value)];
+  scene.map.x_min = numOr("x_min", scene.map.x_min);
+  scene.map.x_max = numOr("x_max", scene.map.x_max);
+  scene.map.y_min = numOr("y_min", scene.map.y_min);
+  scene.map.y_max = numOr("y_max", scene.map.y_max);
+  scene.map.resolution = numOr("resolution", scene.map.resolution);
+  scene.takeoff_height = numOr("takeoff_height", scene.takeoff_height);
+  scene.start = [numOr("sx", scene.start[0]), numOr("sy", scene.start[1])];
+  scene.goal = [numOr("gx", scene.goal[0]), numOr("gy", scene.goal[1])];
 }
 function renderObsList() {
   const box = document.getElementById("obsList");
@@ -261,15 +735,20 @@ function renderObsList() {
       '<div>Y<input type="number" step="0.5" data-f="y" data-i="' + i + '" value="' + o.y + '"></div></div>' +
       '<div class="row"><div>宽<input type="number" step="0.1" min="0.2" data-f="w" data-i="' + i + '" value="' + o.w + '"></div>' +
       '<div>深<input type="number" step="0.1" min="0.2" data-f="h" data-i="' + i + '" value="' + o.h + '"></div></div>' +
-      '<div class="row"><div>高<input type="number" step="0.5" min="0.5" data-f="height" data-i="' + i + '" value="' + o.height + '"></div></div>';
+      '<div class="row"><div>高<input type="number" step="0.5" min="0.5" data-f="height" data-i="' + i + '" value="' + o.height + '"></div>' +
+      '<div>离地<input type="number" step="0.5" min="0" title="悬浮物离地高度（m）；垂直区间触及巡航高度±2m 才会被计为避障威胁" data-f="base_z" data-i="' + i + '" value="' + (o.base_z||0) + '"></div></div>' +
+      (o.base_z>0 ? '<div class="hint">悬浮区间：' + (o.base_z) + '~' + (parseFloat(o.base_z)+parseFloat(o.height)) + 'm</div>' : '');
     d.addEventListener("click", function(ev) {
       if (ev.target.getAttribute("data-del") !== null) return;
       selectedObs = i; renderObsList(); draw();
     });
     d.querySelectorAll("input").forEach(function(inp) {
-      inp.addEventListener("change", function() {
+      inp.addEventListener("input", function() {
         const o2 = scene.obstacles[parseInt(inp.dataset.i)];
         o2[inp.dataset.f] = parseFloat(inp.value);
+        if (inp.dataset.f === "base_z") {
+          o2.kind = parseFloat(inp.value) > 0 ? "floating" : "column";
+        }
         draw();
       });
     });
@@ -282,12 +761,47 @@ function renderObsList() {
     box.appendChild(d);
   });
 }
+const MAP_RECT_IDS = ["x_min", "x_max", "y_min", "y_max"];
 ["x_min","x_max","y_min","y_max","resolution","takeoff_height","sx","sy","gx","gy"].forEach(function(id) {
-  document.getElementById(id).addEventListener("change", function() { readPanel(); draw(); });
+  document.getElementById(id).addEventListener("input", function() {
+    readPanel();
+    if (peekView) {
+      if (MAP_RECT_IDS.indexOf(id) >= 0) {
+        // 地图矩形变了：预览影像是按旧矩形取的，继续盖在画布上就是错的 -> 作废并提示重新预览
+        clearPeek();
+        gisDirty = true;
+        gisMsg("地图矩形已改：原预览影像已作废（矩形对不上了），点「刷新预览」按新矩形重新取图", false);
+      } else {
+        // 起点/终点/分辨率/巡航高：预览里的场景同步改，画布立刻反映
+        peekView.scene.start = scene.start.slice();
+        peekView.scene.goal = scene.goal.slice();
+        peekView.scene.takeoff_height = scene.takeoff_height;
+      }
+    }
+    draw();
+  });
+});
+["gisRouteLen","gisRouteWid","gisExtent","gisLod","gisRings","gisGrid"].forEach(function(id) {
+  document.getElementById(id).addEventListener("input", function() { markGisDirty("GIS 参数"); });
+});
+document.getElementById("gisProvider").addEventListener("change", function() { markGisDirty("贴图源"); });
+document.getElementById("gisOffline").addEventListener("change", function() { markGisDirty("取数模式"); });
+document.getElementById("geoLat").addEventListener("input", function() { markGisDirty("经纬度"); });
+document.getElementById("geoLon").addEventListener("input", function() { markGisDirty("经纬度"); });
+// 「选点范围」与「取数范围」是同一个概念：任一改动同步另一个，避免用户填了 600 却按 1200 生成
+function syncExtent(srcId, dstId) {
+  var v = parseFloat(document.getElementById(srcId).value);
+  if (isNaN(v)) return;
+  v = Math.max(150, Math.min(3000, v));
+  document.getElementById(dstId).value = v;
+}
+["geoPickExtent", "gisExtent"].forEach(function(id) {
+  var other = (id === "geoPickExtent") ? "gisExtent" : "geoPickExtent";
+  document.getElementById(id).addEventListener("change", function() { syncExtent(id, other); markGisDirty("范围"); });
 });
 document.getElementById("btnAddObs").addEventListener("click", function() {
   const mx = (scene.map.x_min + scene.map.x_max)/2, my = (scene.map.y_min + scene.map.y_max)/2;
-  const o = { name: "Obstacle" + (scene.obstacles.length + 1), x: Math.round(mx*10)/10, y: Math.round(my*10)/10, w: 2, h: 2, height: 14 };
+  const o = { name: "Obstacle" + (scene.obstacles.length + 1), x: Math.round(mx*10)/10, y: Math.round(my*10)/10, w: 2, h: 2, height: 14, base_z: 0, kind: "column" };
   scene.obstacles.push(o); selectedObs = scene.obstacles.length - 1;
   syncPanel(); draw();
 });
@@ -298,17 +812,47 @@ function setStatus(txt, isErr) {
   s.className = isErr ? "err" : "";
 }
 
-async function loadScenes() {
-  const r = await fetch("/api/scenes");
-  const d = await r.json();
+let allScenes = [], sceneLoadedOnce = false;
+function renderSceneOptions(keepValue) {
   const sel = document.getElementById("sceneSel");
+  const f = document.getElementById("sceneFilter");
+  const q = ((f && f.value) || "").trim().toLowerCase();
+  const want = keepValue || sel.value;
+  function hit(n) { return !q || n.toLowerCase().indexOf(q) >= 0; }
+  const gis = allScenes.filter(function(n) { return n.indexOf("gis_") === 0 && hit(n); });
+  const other = allScenes.filter(function(n) { return n.indexOf("gis_") !== 0 && hit(n); });
   sel.innerHTML = "";
-  (d.scenes || []).forEach(function(n) {
-    const op = document.createElement("option");
-    op.value = n; op.textContent = n;
-    sel.appendChild(op);
+  [["★ 真实地形场景（GIS，需联网生成的）", gis],
+   ["内置 / 其它场景", other]].forEach(function(pair) {
+    if (!pair[1].length) return;
+    const og = document.createElement("optgroup");
+    og.label = pair[0];
+    pair[1].forEach(function(n) {
+      const op = document.createElement("option");
+      op.value = n; op.textContent = n;
+      og.appendChild(op);
+    });
+    sel.appendChild(og);
   });
-  if (sel.options.length) { sel.selectedIndex = 0; loadScene(sel.value); }
+  if (want) sel.value = want;
+  if (!sel.value && sel.options.length) sel.selectedIndex = 0;
+}
+async function loadScenes(keepValue) {
+  let d;
+  try { d = await (await fetch("/api/scenes")).json(); }
+  catch (e) { setStatus("场景列表获取失败: " + e, true); return; }
+  allScenes = (d && d.scenes) || [];
+  renderSceneOptions(keepValue);
+  const sel = document.getElementById("sceneSel");
+  if (keepValue) { sel.value = keepValue; return; }   // 保存后只刷新列表，不要把用户切到别的场景
+  if (sceneLoadedOnce || !sel.options.length) return;
+  sceneLoadedOnce = true;
+  let idx = 0;
+  for (let i = 0; i < sel.options.length; i++) {
+    if (sel.options[i].value.indexOf("gis_") === 0) { idx = i; break; }
+  }
+  sel.selectedIndex = idx;
+  loadScene(sel.value);
 }
 async function loadScene(name) {
   const r = await fetch("/api/scene?name=" + encodeURIComponent(name));
@@ -316,9 +860,17 @@ async function loadScene(name) {
   const d = await r.json();
   scene = d.scene; sceneName = d.name;
   document.getElementById("sceneName").textContent = sceneName;
+  document.getElementById("saveName").value = sceneName;
   selectedObs = null;
+  clearPeek();
+  gisDirty = false;
+  peekErr = "";
+  gisMsg("", false);
   syncPanel(); draw();
+  loadGisOverlay();
+  syncPickFromScene();
   setStatus("已加载 " + sceneName);
+  requestAnimationFrame(resize);
 }
 document.getElementById("btnLoad").addEventListener("click", function() {
   const sel = document.getElementById("sceneSel");
@@ -329,19 +881,29 @@ document.getElementById("btnNew").addEventListener("click", function() {
     start: [0,0], goal: [100,0], takeoff_height: -12, route: { mode: "line" }, obstacles: [] };
   sceneName = "新场景";
   document.getElementById("sceneName").textContent = sceneName;
+  document.getElementById("saveName").value = "scene.yaml";
   selectedObs = null;
-  syncPanel(); draw(); setStatus("");
+  clearPeek();
+  gisDirty = false;
+  peekErr = "";
+  // 新场景没有 GIS 站点：必须把上一个场景的底图/轮廓清掉，否则画布上还盖着旧影像
+  gisOverlay = { site: "", img: null, footprints: [], loading: false };
+  gisMsg("", false);
+  syncPanel(); draw(); setStatus("已新建空白场景（100x10 默认地图），记得改名后保存");
 });
 document.getElementById("btnSave").addEventListener("click", async function() {
   readPanel();
-  const name = prompt("保存为（文件名）:", sceneName.endsWith(".yaml") ? sceneName : "scene.yaml");
-  if (!name) return;
+  const inp = document.getElementById("saveName");
+  let name = (inp.value || "").trim();
+  if (!name) name = (sceneName && sceneName !== "未命名") ? sceneName : "scene.yaml";
+  if (!/\.ya?ml$/i.test(name)) name += ".yaml";
+  inp.value = name;
   const r = await fetch("/api/scene", {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name: name, scene: scene })
   });
   const d = await r.json();
-  if (d.ok) { sceneName = d.name; document.getElementById("sceneName").textContent = sceneName; setStatus("已保存 " + d.path); loadScenes(); }
+  if (d.ok) { sceneName = d.name; document.getElementById("sceneName").textContent = sceneName; setStatus("已保存 " + d.path); loadScenes(d.name); }
   else { setStatus("保存失败: " + (d.errors || []).join("; "), true); }
 });
 document.getElementById("btnCheck").addEventListener("click", async function() {
@@ -355,8 +917,774 @@ document.getElementById("btnCheck").addEventListener("click", async function() {
   else setStatus("校验失败: " + (d.errors || []).join("; "), true);
 });
 
-loadScenes();
-resize();
+// ---------- v4.1 全球任意地区（地图选点） ----------
+let pickMap = null, pickMarker = null, pickCircle = null, pickLabel = "";
+let geoPresetList = [];
+function pickMsg(text, isErr) { msgEl("geoPickMsg", text, isErr); }
+function pickSetPoint(lat, lon, keepView) {
+  document.getElementById("geoLat").value = Number(lat).toFixed(5);
+  document.getElementById("geoLon").value = Number(lon).toFixed(5);
+  const ext = parseFloat(document.getElementById("geoPickExtent").value) || 600;
+  if (!pickMap) return;
+  const ll = [Number(lat), Number(lon)];
+  if (!keepView) pickMap.setView(ll, pickMap.getZoom() < 8 ? 12 : pickMap.getZoom());
+  if (!pickMarker) {
+    pickMarker = L.marker(ll, { draggable: true }).addTo(pickMap);
+    pickMarker.on("dragend", function () {
+      const p2 = pickMarker.getLatLng();
+      pickSetPoint(p2.lat, p2.lng, true);
+      markGisDirty("地图选点");
+    });
+    pickCircle = L.circle(ll, { radius: ext / 2.0, color: "#2d6cdf", weight: 1, fillOpacity: 0.08 }).addTo(pickMap);
+  } else {
+    pickMarker.setLatLng(ll);
+  }
+  if (pickCircle) pickCircle.setLatLng(ll).setRadius(ext / 2.0);
+}
+function syncPickFromScene() {
+  if (!scene) return;
+  const c = (scene.geo && scene.geo.center) || null;
+  if (c && c.length >= 2 && !isNaN(c[0])) { pickSetPoint(c[0], c[1], false); return; }
+  const hp = scene.home_geo_point;
+  if (hp && hp.latitude != null) pickSetPoint(hp.latitude, hp.longitude, false);
+}
+function pickInitMap() {
+  const el = document.getElementById("mapPick");
+  if (!el || pickMap) return;
+  if (!window.L) {
+    pickMsg("地图组件未加载（离线或 CDN 不可达）；可直接填经纬度或用下方地名搜索。", true);
+    return;
+  }
+  pickMap = L.map(el, { worldCopyJump: true }).setView([30.0, 110.0], 3);
+  L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+    maxZoom: 19, attribution: "影像 (c) Esri / Maxar / Earthstar Geographics"
+  }).addTo(pickMap);
+  L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}", {
+    maxZoom: 19, opacity: 0.85
+  }).addTo(pickMap);
+  pickMap.on("click", function (ev) {
+    pickSetPoint(ev.latlng.lat, ev.latlng.lng, true);
+    pickMsg("已选点：" + Number(ev.latlng.lat).toFixed(5) + ", " + Number(ev.latlng.lng).toFixed(5) +
+            " —— 点「生成真实场景」得到该点真实地形+建筑", false);
+    markGisDirty("地图选点");
+  });
+  // 不预填坐标：避免把 (30,110) 当成用户选点；由场景 geo 或用户点击决定
+}
+async function doGeoSearch() {
+  const q = document.getElementById("geoSearchQ").value.trim();
+  const sel = document.getElementById("geoSearchSel");
+  if (!q) { pickMsg("请输入地名（支持中文/英文/任意地区）", true); return; }
+  pickMsg("检索中…（Nominatim）", false);
+  try {
+    const r = await fetch("/api/geo/search?q=" + encodeURIComponent(q) + "&limit=6");
+    const d = await r.json();
+    sel.innerHTML = "";
+    if (!d.ok || !d.results || !d.results.length) {
+      pickMsg("无结果: " + (d.error || "换关键词或直接地图选点"), true); return;
+    }
+    d.results.forEach(function (it, i) {
+      const op = document.createElement("option");
+      op.value = String(i);
+      op.textContent = (it.name.length > 88 ? it.name.slice(0, 88) + "…" : it.name);
+      sel.appendChild(op);
+    });
+    sel.dataset.results = JSON.stringify(d.results);
+    const first = d.results[0];
+    pickLabel = first.name;
+    pickSetPoint(first.lat, first.lon, false);
+    markGisDirty("地名搜索");
+    pickMsg("找到 " + d.results.length + " 个结果：下拉可换，然后点「生成真实场景」或「用该点导入」", false);
+  } catch (e) { pickMsg("检索异常: " + e, true); }
+}
+function geoSearchPick() {
+  const sel = document.getElementById("geoSearchSel");
+  if (!sel.dataset.results) return;
+  const list = JSON.parse(sel.dataset.results);
+  const it = list[parseInt(sel.value, 10)] || list[0];
+  if (!it) return;
+  pickLabel = it.name;
+  pickSetPoint(it.lat, it.lon, false);
+  markGisDirty("搜索结果");
+}
+async function doGeoReverse() {
+  const lat = parseFloat(document.getElementById("geoLat").value);
+  const lon = parseFloat(document.getElementById("geoLon").value);
+  if (isNaN(lat) || isNaN(lon)) { pickMsg("请先地图选点或填经纬度", true); return; }
+  pickMsg("反查中…", false);
+  try {
+    const r = await fetch("/api/geo/reverse?lat=" + lat + "&lon=" + lon);
+    const d = await r.json();
+    if (!d.ok) { pickMsg("反查失败: " + (d.error || ""), true); return; }
+    pickLabel = d.name;
+    pickMsg("地名: " + d.name, false);
+  } catch (e) { pickMsg("反查异常: " + e, true); }
+}
+function doGeoPickImport() {
+  const ll = peekLatLon();
+  if (!ll) { pickMsg("请先在地图上选点或填经纬度", true); return; }
+  syncExtent("geoPickExtent", "gisExtent");
+  pickMsg("按该点生成真实地形 + 真实建筑…", false);
+  markGisDirty("该点生成");
+  doGisBuild();
+}
+
+// ---------- v4: 城市导入 / 随机障碍 ----------
+function parseRange(txt) {
+  const m = String(txt).split("-");
+  const a = parseFloat(m[0]) || 1;
+  const b = parseFloat(m[1]) !== undefined && !isNaN(parseFloat(m[1])) ? parseFloat(m[1]) : a;
+  return [Math.min(a, b), Math.max(a, b)];
+}
+async function loadGeoPresets() {
+  try {
+    const r = await fetch("/api/geo/presets");
+    const d = await r.json();
+    const sel = document.getElementById("geoPreset");
+    sel.innerHTML = "";
+    geoPresetList = d.presets || [];
+    (d.presets || []).forEach(function (p) {
+      const op = document.createElement("option");
+      op.value = p.id; op.textContent = (p.cached ? "[缓存] " : "[在线] ") + p.name;
+      sel.appendChild(op);
+    });
+  } catch (e) { /* ignore */ }
+}
+function msgEl(id, text, isErr) {
+  const el = document.getElementById(id);
+  el.textContent = text;
+  el.className = "hint" + (isErr ? " err" : "");
+}
+let geoPollTimer = null, geoPollFails = 0;
+async function pollGeoTask() {
+  try {
+    const r = await fetch("/api/geo/status");
+    const d = await r.json();
+    geoPollFails = 0;
+    if (d.busy) return;
+    clearInterval(geoPollTimer); geoPollTimer = null;
+    if (d.error) { msgEl("geoMsg", "导入失败: " + d.error, true); return; }
+    if (d.scene) {
+      scene = d.scene; sceneName = d.name || sceneName;
+      document.getElementById("sceneName").textContent = sceneName;
+      selectedObs = null;
+      clearPeek();
+      syncPanel(); draw();
+      loadGisOverlay();
+      msgEl("geoMsg", d.message + " —— 已载入画布，可拖动起终点后保存", false);
+      setStatus("城市导入完成: " + sceneName);
+    }
+  } catch (e) {
+    geoPollFails++;
+    msgEl("geoMsg", "状态查询失败 " + geoPollFails + " 次（继续重试）: " + e, true);
+    if (geoPollFails >= 25) { clearInterval(geoPollTimer); geoPollTimer = null; geoPollFails = 0; }
+  }
+}
+async function startGeoImport(refresh, override) {
+  if (geoPollTimer) return;
+  const preset = document.getElementById("geoPreset").value;
+  const place = document.getElementById("geoPlace").value.trim();
+  const extent = parseFloat(document.getElementById("geoExtent").value) || 400;
+  const body = override || { extent_m: extent, offline_only: !refresh, refresh: refresh };
+  if (!override) {
+    if (place) body.place = place; else body.preset_id = preset || "manhattan_nyc";
+  }
+  msgEl("geoMsg", (refresh ? "OSM 在线拉取中" : "导入中") + "（含 A* 规划，10~60 秒）…", false);
+  try {
+    const r = await fetch("/api/geo/import", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    const d = await r.json();
+    if (!d.ok) { msgEl("geoMsg", "启动失败: " + (d.error || ""), true); return; }
+    geoPollTimer = setInterval(pollGeoTask, 900);
+  } catch (e) { msgEl("geoMsg", "请求异常: " + e, true); }
+}
+async function doRandom() {
+  readPanel();
+  const wr = parseRange(document.getElementById("randW").value);
+  const dr = parseRange(document.getElementById("randD").value);
+  const hr = parseRange(document.getElementById("randH").value);
+  const seedTxt = document.getElementById("randSeed").value.trim();
+  const body = {
+    scene: scene,
+    count: parseInt(document.getElementById("randCount").value, 10) || 4,
+    w_min: wr[0], w_max: wr[1], h_min: dr[0], h_max: dr[1],
+    height_min: hr[0], height_max: hr[1],
+    floating_ratio: (parseFloat(document.getElementById("randFloat").value) || 0) / 100,
+    replace: document.getElementById("randMode").value === "replace"
+  };
+  if (seedTxt !== "" && !isNaN(parseInt(seedTxt, 10))) body.seed = parseInt(seedTxt, 10);
+  msgEl("randMsg", "生成中（可达性校验）…", false);
+  try {
+    const r = await fetch("/api/obstacles/random", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    const d = await r.json();
+    if (d.ok) {
+      scene = d.scene; selectedObs = null;
+      syncPanel(); draw();
+      const info = d.info || {};
+      msgEl("randMsg", "完成：共 " + scene.obstacles.length + " 个障碍，尝试 " + info.attempts +
+            " 次" + (info.dropped ? "，自动回退 " + info.dropped + " 个" : "") + "（A* 已校验）", false);
+      setStatus("随机障碍生成完成");
+    } else {
+      const es = d.errors ? d.errors.join("; ") : d.error;
+      msgEl("randMsg", "失败: " + (es || "未知"), true);
+    }
+  } catch (e) { msgEl("randMsg", "请求异常: " + e, true); }
+}
+// ---------- v5.0 真实地形 + 真实建筑（GIS 3D 瓦片） ----------
+let gisPollTimer = null, gisPollFails = 0;
+let buildBusy = false, buildProgress = 0, buildMsg = "";
+let gisOverlay = { site: "", img: null, footprints: [], loading: false };
+let gisDirty = false;
+function markGisDirty(what) {
+  gisDirty = true;
+  gisMsg("已改「" + what + "」，正在按新参数重新预览…", false);
+  draw();
+  schedulePeek(600);
+}
+function gisPendingBox() {
+  const len = parseFloat(document.getElementById("gisRouteLen").value) || 600;
+  const wid = parseFloat(document.getElementById("gisRouteWid").value) || 160;
+  const mx = (scene.map.x_min + scene.map.x_max) / 2;
+  const my = (scene.map.y_min + scene.map.y_max) / 2;
+  const ns = (scene.map.x_max - scene.map.x_min) >= (scene.map.y_max - scene.map.y_min);
+  const hx = (ns ? len : wid) / 2;
+  const hy = (ns ? wid : len) / 2;
+  return { x0: mx - hx, x1: mx + hx, y0: my - hy, y1: my + hy, len: len, wid: wid, ns: ns };
+}
+function drawGisPending(x0, y0, x1, y1) {
+  if (!gisDirty || peekView) return;
+  const b = gisPendingBox();
+  const pa = worldToScreen(b.x0, b.y1);
+  const pb = worldToScreen(b.x1, b.y0);
+  const lx = Math.min(pa[0], pb[0]), ly = Math.min(pa[1], pb[1]);
+  const lw = Math.abs(pb[0] - pa[0]), lh = Math.abs(pb[1] - pa[1]);
+  if (lw < 2 || lh < 2) return;
+  ctx.save();
+  ctx.beginPath(); ctx.rect(x0, y0, x1 - x0, y1 - y0); ctx.clip();
+  ctx.fillStyle = "rgba(232,147,12,0.10)";
+  ctx.fillRect(lx, ly, lw, lh);
+  ctx.setLineDash([10, 6]); ctx.lineWidth = 2; ctx.strokeStyle = "#e8930c";
+  ctx.strokeRect(lx, ly, lw, lh);
+  ctx.setLineDash([]);
+  ctx.fillStyle = "#8a5300";
+  ctx.font = "12px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "top";
+  ctx.fillText("待生成 " + Math.round(b.len) + "m x " + Math.round(b.wid) + "m（"
+               + (b.ns ? "南北向" : "东西向") + "）", lx + lw / 2, ly + 4);
+  ctx.restore();
+}
+function gisMsg(text, isErr) { msgEl("gisMsg", text, isErr); }
+
+// ---------- v5.1 实时预览：左栏一改就重画右侧画布 ----------
+function schedulePeek(delay) {
+  if (peekTimer) clearTimeout(peekTimer);
+  peekTimer = setTimeout(function () { doGisPeek(false); }, delay === undefined ? 700 : delay);
+}
+function peekLatLon() {
+  const lat = parseFloat(document.getElementById("geoLat").value);
+  const lon = parseFloat(document.getElementById("geoLon").value);
+  if (isNaN(lat) || isNaN(lon)) return null;
+  if (lat < -85 || lat > 85 || lon < -180 || lon > 180) return null;
+  return [lat, lon];
+}
+function peekEndUi() {
+  gisSpin(false);
+  setGisBar(null);
+  if (peekPollTimer) { clearInterval(peekPollTimer); peekPollTimer = null; }
+  if (peekTickTimer) { clearInterval(peekTickTimer); peekTickTimer = null; }
+  const c = document.getElementById("btnGisCancel");
+  if (c) c.classList.add("hide");
+}
+// 把后端的异常原文翻成人话：用户看不到 Python 异常类名，只需要知道"该点哪"。
+function humanGisErr(raw) {
+  const s = String(raw || "").replace(/^[A-Za-z_]*Error:\s*/, "");
+  const cd = s.match(/冷却中（还剩\s*([\d.]+)\s*秒）/);
+  if (cd) return "OSM 建筑服务器（Overpass）本轮全部超时，程序正在冷却 " +
+                 Math.round(Number(cd[1])) + " 秒；点「重试建筑数据」可立刻再试。";
+  const to = s.match(/全部镜像失败\/超时\((\d+)s\)/);
+  if (to) return "OSM 建筑服务器（Overpass）在 " + to[1] + " 秒内没有返回有效数据。";
+  if (/offline/.test(s)) return "当前离线模式，本地没有这块区域的建筑缓存。";
+  return s;
+}
+// 只有"等 OSM 建筑"这一段可能几十秒没动静，其它步骤都是秒级：只给这一段倒计时。
+function peekEta() {
+  if (!/建筑|Overpass/i.test(peekStageText || "")) return "";
+  const left = Math.max(0, Math.round((peekDeadlineMs - (Date.now() - peekT0)) / 1000));
+  return "（最长再等约 " + left + " 秒；不想等就到 ② 勾「跳过在线建筑轮廓」）";
+}
+// 重试前必须先把后端的 Overpass 冷却清掉，否则会立刻再失败一次，看起来像"按钮没用"
+async function retryGisPeek() {
+  try { await fetch("/api/gis/overpass/retry", { method: "POST" }); } catch (e) { /* 清冷却失败也照样重试 */ }
+  peekErr = "";
+  doGisPeek(true);
+}
+function peekTick() {
+  if (!peekBusy) return;
+  const sec = Math.max(0, Math.round((Date.now() - peekT0) / 1000));
+  const pct = Math.round((peekProgress || 0) * 100);
+  setStatus("刷新中 " + pct + "% · " + sec + "s");
+  // 进度也写到按钮旁边的 gisMsg：用户视线在 ② 卡片，不用去别处找状态
+  if (sec !== peekLastSec) {
+    peekLastSec = sec;
+    const m = document.getElementById("gisMsg");
+    if (m) {
+      m.textContent = "刷新中 " + pct + "% · 已用 " + sec + " 秒 — " + (peekStageText || "准备中…") + peekEta();
+      m.className = "hint busy";
+    }
+  }
+  draw();
+}
+function peekFail(msg) {
+  peekBusy = false; peekEndUi(); peekStageText = "";
+  peekErr = humanGisErr(msg) || "未知原因";
+  draw();
+  gisMsg("预览失败：" + peekErr + " 可点「刷新预览」重试（OSM 服务器偶发超时属正常）", true);
+  setStatus("预览失败", true);
+}
+function peekApply(d) {
+  if (!d || !d.scene) { peekFail("后端返回空结果"); return; }
+  peekErr = "";
+  const seq = peekSeq;
+  const img = new Image();
+  img.onload = function () {
+    if (seq !== peekSeq) return;
+    peekView = { img: img, footprints: d.footprints || [], scene: d.scene,
+                 plan: d, lat: d.lat, lon: d.lon };
+    peekBusy = false; peekEndUi();
+    gisDirty = false;
+    draw();
+    if (d.buildings_error) {
+      gisMsg("⚠ 预览已生成，但没有建筑轮廓（只有真实影像 + 真实地形）。原因：" +
+             humanGisErr(d.buildings_error) +
+             " → 到 ② 把「跳过在线建筑轮廓」勾上再刷新可立刻出图；"
+             + "或点画布中央的「重试」按钮马上再试一次。", true);
+      setStatus("预览就绪（纯地形，无建筑）", true);
+    } else {
+      gisMsg("预览已更新：" + (d.scene.obstacles || []).length + " 个障碍 / " +
+             (d.footprints || []).length + " 栋真实建筑轮廓 / 走廊 " +
+             Math.round(d.route_len_m) + "m x " + Math.round(d.route_width_m) + "m / " +
+             (d.reachable ? "A* 可达" : "A* 不可达") +
+             (d.cached ? "（缓存）" : "（耗时 " + Math.round(d.elapsed_s || 0) + "s）") +
+             " —— 满意后点「生成真实场景」写入 3D", false);
+      setStatus("预览就绪 " + Number(d.lat).toFixed(4) + ", " + Number(d.lon).toFixed(4));
+    }
+  };
+  img.onerror = function () { if (seq === peekSeq) peekFail("影像加载失败（无网络或缺缓存）"); };
+  img.src = d.png_url + "&t=" + Date.now();
+}
+function peekPollStart(seq) {
+  if (peekPollTimer) clearInterval(peekPollTimer);
+  peekPollTimer = setInterval(async function () {
+    if (seq !== peekSeq) { clearInterval(peekPollTimer); peekPollTimer = null; return; }
+    try {
+      const r = await fetch("/api/gis/peek/status?key=" + encodeURIComponent(peekJobKey));
+      const d = await r.json();
+      if (seq !== peekSeq) return;
+      if (!d.ok || d.state === "unknown") {
+        // 任务记录已失效（服务重启 / 记录被清理）：回退一次同步请求，拿到最终结果后停止轮询
+        clearInterval(peekPollTimer); peekPollTimer = null;
+        peekSync(seq);
+        return;
+      }
+      peekProgress = d.progress || 0;
+      peekStageText = d.message || "";
+      setGisBar(Math.max(0.03, peekProgress));
+      if (d.state === "done") {
+        clearInterval(peekPollTimer); peekPollTimer = null;
+        peekApply(d.plan);
+      } else if (d.state === "error") {
+        clearInterval(peekPollTimer); peekPollTimer = null;
+        peekFail(d.error);
+      }
+    } catch (e) { /* 单次轮询失败无所谓，下次继续 */ }
+  }, 1000);
+}
+function peekBody(force) {
+  const ll = peekLatLon();
+  if (!ll) return null;
+  return {
+    lat: ll[0], lon: ll[1],
+    extent_m: parseFloat(document.getElementById("gisExtent").value) || 1200,
+    route_len_m: parseFloat(document.getElementById("gisRouteLen").value) || 600,
+    route_width_m: parseFloat(document.getElementById("gisRouteWid").value) || 160,
+    provider: document.getElementById("gisProvider").value,
+    offline: document.getElementById("gisOffline").value === "1",
+    width: 1000,
+    async: true,
+    force: !!force,
+    skip_buildings: !!(document.getElementById("gisSkipBld") || {}).checked,
+    buildings_deadline_s: 30
+  };
+}
+// 任务记录丢失时的同步回退（不带 async），避免无限重发
+async function peekSync(seq) {
+  const body = peekBody(false);
+  if (!body) { peekFail("坐标无效"); return; }
+  body.async = false;
+  try {
+    const r = await fetch("/api/gis/peek", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    const d = await r.json();
+    if (seq !== peekSeq) return;
+    if (!d.ok) { peekFail(d.error); return; }
+    peekApply(d.plan || d);
+  } catch (ex) {
+    if (seq === peekSeq) peekFail(String(ex));
+  }
+}
+async function doGisPeek(force) {
+  const body = peekBody(force);
+  if (!body) { gisMsg("先点左侧小地图选点，或填经纬度 / 用地名搜索", true); return; }
+  const seq = ++peekSeq;
+  peekBusy = true;
+  peekErr = "";
+  peekLastSec = -1;
+  peekProgress = 0;
+  peekStageText = "正在连接后端…";
+  peekT0 = Date.now();
+  peekDeadlineMs = (body.buildings_deadline_s || 45) * 1000 + 20000;
+  gisSpin(true); setGisBar("indet");
+  const cb = document.getElementById("btnGisCancel");
+  if (cb) cb.classList.remove("hide");
+  gisMsg("正在刷新预览…（首次到访该区域要联网取影像+OSM 建筑，通常 15~60 秒；已缓存区域 1~3 秒）", false);
+  if (peekTickTimer) clearInterval(peekTickTimer);
+  peekTickTimer = setInterval(peekTick, 500);
+  peekTick();
+  try {
+    const r = await fetch("/api/gis/peek", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    const d = await r.json();
+    if (seq !== peekSeq) return;
+    if (!d.ok) { peekFail(d.error); return; }
+    peekJobKey = d.key || null;
+    peekProgress = d.progress || 0;
+    peekStageText = d.message || "";
+    if (d.plan) { peekApply(d.plan); return; }
+    setGisBar(Math.max(0.03, peekProgress));
+    peekPollStart(seq);
+  } catch (ex) {
+    if (seq === peekSeq) peekFail(String(ex));
+  }
+}
+function cancelPeek() {
+  peekSeq++;
+  peekErr = "";
+  peekBusy = false;
+  peekEndUi();
+  peekStageText = "";
+  draw();
+  gisMsg("已停止等待（后台仍会跑完并缓存，下次点「刷新预览」秒开）", false);
+  setStatus("已取消等待");
+}
+function gisSiteOfScene() {
+  if (!scene) return "";
+  if (scene.gis && scene.gis.site_id) return scene.gis.site_id;
+  if (scene.geo && scene.geo.gis_site) return scene.geo.gis_site;
+  return "";
+}
+async function loadGisOverlay(site) {
+  site = site || gisSiteOfScene();
+  if (!site) {
+    if (gisOverlay.site) { gisOverlay = { site: "", img: null, footprints: [], loading: false }; draw(); }
+    return;
+  }
+  if (gisOverlay.site === site && gisOverlay.img) { draw(); return; }
+  gisOverlay.site = site; gisOverlay.img = null; gisOverlay.footprints = [];
+  gisOverlay.loading = true;
+  const img = new Image();
+  img.onload = function () {
+    if (gisOverlay.site === site) { gisOverlay.img = img; gisOverlay.loading = false; draw(); }
+  };
+  img.onerror = function () { if (gisOverlay.site === site) gisOverlay.loading = false; };
+  img.src = "/api/gis/topdown.png?site=" + encodeURIComponent(site) + "&t=" + Date.now();
+  try {
+    const r = await fetch("/api/gis/footprints?site=" + encodeURIComponent(site));
+    const d = await r.json();
+    if (gisOverlay.site === site) gisOverlay.footprints = (d && d.buildings) || [];
+  } catch (e) { /* 轮廓可选，不影响底图 */ }
+  draw();
+}
+async function pollGisTask() {
+  let d;
+  try {
+    const r = await fetch("/api/gis/status");
+    d = await r.json();
+    gisPollFails = 0;
+  } catch (e) {
+    gisPollFails++;
+    gisMsg("状态查询失败 " + gisPollFails + " 次（继续重试）: " + e, true);
+    return;
+  }
+  if (d.busy) {
+    buildBusy = true; buildProgress = d.progress || 0; buildMsg = d.message || "";
+    gisSpin(true); setGisBar(d.progress || 0);
+    gisMsg("生成中 " + Math.round((d.progress || 0) * 100) + "% — " + (d.message || ""), false);
+    draw();
+    return;
+  }
+  if (gisPollTimer) { clearInterval(gisPollTimer); gisPollTimer = null; }
+  buildBusy = false;
+  gisSpin(false); setGisBar(null);
+  if (d.error) { gisMsg("生成失败: " + d.error, true); draw(); return; }
+  if (d.scene) {
+    scene = d.scene;
+    if (d.name) { sceneName = d.name; document.getElementById("sceneName").textContent = sceneName; }
+    selectedObs = null;
+    syncPanel();
+    gisDirty = false;
+    clearPeek();
+    draw();
+    gisMsg("完成 " + (d.summary || "") + " —— 已载入画布（底图为该地区真实影像）", false);
+    setStatus("真实场景就绪: " + sceneName);
+    loadGisSites();
+    loadGisOverlay(d.site_id);
+  }
+}
+async function doGisBuild() {
+  const lat = parseFloat(document.getElementById("geoLat").value);
+  const lon = parseFloat(document.getElementById("geoLon").value);
+  if (isNaN(lat) || isNaN(lon)) { gisMsg("请先在地图上选点，或直接填写经纬度", true); return; }
+  if (gisPollTimer) { gisMsg("已有生成任务进行中", true); return; }
+  const body = {
+    lat: lat, lon: lon,
+    extent_m: parseFloat(document.getElementById("gisExtent").value) || 1200,
+    route_len_m: parseFloat(document.getElementById("gisRouteLen").value) || 600,
+    route_width_m: parseFloat(document.getElementById("gisRouteWid").value) || 160,
+    lod: parseInt(document.getElementById("gisLod").value, 10) || 17,
+    rings: parseInt(document.getElementById("gisRings").value, 10) || 0,
+    grid: parseInt(document.getElementById("gisGrid").value, 10) || 64,
+    provider: document.getElementById("gisProvider").value,
+    offline: document.getElementById("gisOffline").value === "1",
+    label: pickLabel || undefined
+  };
+  buildBusy = true; buildProgress = 0; buildMsg = "启动中…";
+  gisSpin(true); setGisBar("indet");
+  gisMsg("正在生成真实地形与建筑（首次需 30 秒~数分钟，取决于范围/层级）…", false);
+  try {
+    const r = await fetch("/api/gis/build", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    const d = await r.json();
+    if (!d.ok) { buildBusy = false; gisSpin(false); setGisBar(null); gisMsg("启动失败: " + (d.error || ""), true); draw(); return; }
+    gisPollFails = 0;
+    gisPollTimer = setInterval(pollGisTask, 1200);
+    pollGisTask();
+  } catch (e) { buildBusy = false; gisSpin(false); setGisBar(null); gisMsg("请求异常: " + e, true); draw(); }
+}
+async function doGisPreview() {
+  const site = gisSiteOfScene();
+  if (!site) { gisMsg("当前场景不是 GIS 真实场景（先在地图选点后生成）", true); return; }
+  readPanel();
+  gisMsg("重绘底图中…（按左栏当前地图矩形）", false);
+  let saved = false;
+  try {
+    const rs = await fetch("/api/scene", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: sceneName, scene: scene })
+    });
+    const ds = await rs.json();
+    saved = !!(ds && ds.ok);
+  } catch (e) { saved = false; }
+  try {
+    const r = await fetch("/api/gis/preview", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        site: site,
+        provider: document.getElementById("gisProvider").value,
+        map: scene.map
+      })
+    });
+    const d = await r.json();
+    if (!d.ok) { gisMsg("重绘失败: " + (d.error || ""), true); return; }
+    gisOverlay.site = ""; gisOverlay.img = null; gisOverlay.footprints = [];
+    gisDirty = false;
+    gisMsg("底图已按左栏矩形重绘（" + ((d.meta && d.meta.zoom) || "?") + " 级，" +
+           ((d.meta && d.meta.m_per_px) || "?") + " m/px）" +
+           (saved ? "，场景已保存" : "，场景保存失败（底图仍已更新）"), false);
+    loadGisOverlay(site);
+    draw();
+  } catch (e) { gisMsg("请求异常: " + e, true); }
+}
+async function loadGisSites() {
+  try {
+    const r = await fetch("/api/gis/sites");
+    const d = await r.json();
+    const sel = document.getElementById("gisSiteSel");
+    const keep = sel.value;
+    sel.innerHTML = '<option value="">（已生成的真实场景）</option>';
+    (d.sites || []).forEach(function (s) {
+      const op = document.createElement("option");
+      op.value = s.site_id;
+      op.textContent = s.site_id + "  [" + (s.buildings || 0) + " 栋建筑 / " +
+        (s.tile_count || 0) + " 瓦片 / " + (s.mb || 0) + "MB]";
+      sel.appendChild(op);
+    });
+    if (keep) sel.value = keep;
+  } catch (e) { /* 列表可选 */ }
+}
+async function doGisLoad() {
+  const sel = document.getElementById("gisSiteSel");
+  const site = sel.value;
+  if (!site) { gisMsg("请先在下拉里选择已生成的真实场景", true); return; }
+  try {
+    const r = await fetch("/api/gis/load", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ site: site })
+    });
+    const d = await r.json();
+    if (!d.ok) { gisMsg("加载失败: " + (d.error || ""), true); return; }
+    scene = d.scene; sceneName = d.name;
+    document.getElementById("sceneName").textContent = sceneName;
+    document.getElementById("saveName").value = sceneName;
+    selectedObs = null;
+    clearPeek();
+    syncPanel(); draw();
+    loadGisOverlay(d.site_id);
+    syncPickFromScene();
+    gisMsg("已载入 " + d.name + "（真实地形 + " + (gisOverlay.footprints.length || 0) + " 栋建筑轮廓）", false);
+    setStatus("已加载 " + sceneName);
+  } catch (e) { gisMsg("请求异常: " + e, true); }
+}
+document.getElementById("btnNetCheck").addEventListener("click", function () { doNetCheck(false); });
+document.getElementById("btnNetRetry").addEventListener("click", function () { doNetCheck(true); });
+(function () { const sf = document.getElementById("sceneFilter");
+  if (sf) sf.addEventListener("input", function () { renderSceneOptions(); }); })();
+(function () { const sk = document.getElementById("gisSkipBld");
+  if (sk) sk.addEventListener("change", function () { markGisDirty("跳过建筑轮廓"); }); })();
+document.getElementById("btnGisBuild").addEventListener("click", doGisBuild);
+document.getElementById("btnGisPreview").addEventListener("click", doGisPreview);
+document.getElementById("btnGisPeek").addEventListener("click", function () { doGisPeek(true); });
+document.getElementById("btnGisCancel").addEventListener("click", cancelPeek);
+document.getElementById("cvCancel").addEventListener("click", cancelPeek);
+document.getElementById("cvRetry").addEventListener("click", function () { if (cvRetryFn) cvRetryFn(); });
+document.getElementById("btnExitPeek").addEventListener("click", function () { exitPeek(""); setStatus("已退出预览"); });
+document.getElementById("btnGisLoad").addEventListener("click", doGisLoad);
+loadGisSites();
+document.getElementById("btnGeoImport").addEventListener("click", function () { startGeoImport(false); });
+document.getElementById("btnGeoRefresh").addEventListener("click", function () { startGeoImport(true); });
+document.getElementById("btnRand").addEventListener("click", doRandom);
+document.getElementById("btnGeoReal").addEventListener("click", function () {
+  const id = document.getElementById("geoPreset").value;
+  const p = geoPresetList.filter(function (x) { return x.id === id; })[0];
+  if (!p) { msgEl("geoMsg", "请先在下拉里选择预置城市", true); return; }
+  document.getElementById("geoLat").value = Number(p.lat).toFixed(5);
+  document.getElementById("geoLon").value = Number(p.lon).toFixed(5);
+  pickSetPoint(p.lat, p.lon, false);
+  msgEl("geoMsg", "按 " + p.name + " 生成真实地形 + 真实建筑…", false);
+  markGisDirty("预置城市");
+  doGisBuild();
+});
+document.getElementById("btnGeoSearch").addEventListener("click", doGeoSearch);
+document.getElementById("geoSearchSel").addEventListener("change", geoSearchPick);
+document.getElementById("btnGeoReverse").addEventListener("click", doGeoReverse);
+document.getElementById("geoPickExtent").addEventListener("input", function () {
+  const lat = parseFloat(document.getElementById("geoLat").value);
+  const lon = parseFloat(document.getElementById("geoLon").value);
+  if (!isNaN(lat) && !isNaN(lon)) pickSetPoint(lat, lon, true);
+  markGisDirty("选点范围");
+});
+// ---------- v5.5 数据源自检：把"卡在哪个源"直接摆到界面上 ----------
+let netChecked = false;
+async function doNetCheck(reset) {
+  const box = document.getElementById("netList");
+  const b1 = document.getElementById("btnNetCheck");
+  const b2 = document.getElementById("btnNetRetry");
+  if (!box) return;
+  if (b1) b1.disabled = true;
+  if (b2) b2.disabled = true;
+  box.innerHTML = '<div class="hint busy">正在并行探测 5 个数据源（单个 6 秒超时）…</div>';
+  try {
+    const r = await fetch("/api/net/check" + (reset ? "?reset=1" : ""));
+    const d = await r.json();
+    box.innerHTML = "";
+    let bad = 0;
+    (d.sources || []).forEach(function (src) {
+      if (!src.ok) bad++;
+      const div = document.createElement("div");
+      div.className = "net-row";
+      const head = document.createElement("span");
+      head.innerHTML = '<span class="net-dot ' + (src.ok ? "ok" : "bad") + '"></span>' +
+        esc(src.label) + ' <span class="net-ms">' + (src.ok ? src.ms + " ms" : "不可达") + '</span>';
+      div.appendChild(head);
+      if (!src.ok) {
+        const e = document.createElement("div");
+        e.className = "net-err";
+        e.textContent = src.error || "未知错误";
+        div.appendChild(e);
+      }
+      box.appendChild(div);
+    });
+    if (d.overpass_cooldown_s > 0) {
+      const cd = document.createElement("div");
+      cd.className = "hint err";
+      cd.textContent = "Overpass 正处于失败冷却（还剩 " +
+        Math.round(d.overpass_cooldown_s) + " 秒）：这期间预览会自动跳过建筑、按纯地形秒出。" +
+        "换好网络后点「重新检测并重试」即可恢复。";
+      box.appendChild(cd);
+    } else if (bad === 0) {
+      const ok = document.createElement("div");
+      ok.className = "hint ok";
+      ok.textContent = "全部数据源可达，预览/生成应当正常。";
+      box.appendChild(ok);
+    }
+    setStatus("数据源自检完成 " + (d.checked_at || "") + (bad ? "（" + bad + " 个源不可达）" : "（全部正常）"), !!bad);
+  } catch (e) {
+    box.innerHTML = '<div class="hint err">自检请求本身失败: ' + esc(e) + "</div>";
+  } finally {
+    if (b1) b1.disabled = false;
+    if (b2) b2.disabled = false;
+  }
+}
+
+function gisSpin(on) {
+  const el = document.getElementById("gisSpin");
+  if (el) el.className = on ? "spin show" : "spin";
+}
+function setGisBar(v) {
+  const bar = document.getElementById("gisBar");
+  const fill = document.getElementById("gisBarFill");
+  if (!bar || !fill) return;
+  if (v === null || v === undefined) { bar.className = "bar"; fill.style.width = "0%"; return; }
+  if (v === "indet") { bar.className = "bar show indet"; return; }
+  bar.className = "bar show";
+  fill.style.width = Math.max(2, Math.min(100, Math.round(v * 100))) + "%";
+}
+const uePillEl = document.getElementById("uePill");
+const ueTextEl = document.getElementById("uePillText");
+async function pollUe() {
+  try {
+    const r = await fetch("/api/ue");
+    const d = await r.json();
+    const on = !!d.connected;
+    uePillEl.className = "pill " + (on ? "on" : "off");
+    ueTextEl.textContent = on ? "UE 已连接 (8990)" : "UE 未连接";
+    uePillEl.title = on
+      ? "Project AirSim RPC 已就绪，可以飞行/加载场景"
+      : "未检测到 8990 端口：飞行、加载场景都会失败。请先启动 UE（控制台页有「启动 UE」）。";
+  } catch (e) { /* 状态未知时保持原样 */ }
+}
+setInterval(pollUe, 5000);
+pollUe();
+loadGeoPresets();
+pickInitMap();
+
+setTimeout(function () { if (!netChecked) { netChecked = true; doNetCheck(false); } }, 1200);
+
+(function () {
+  initCanvasSize();
+  const m = /[?&]scene=([^&]+)/.exec(location.search);
+  if (!m) { loadScenes(); return; }
+  const want = decodeURIComponent(m[1]);
+  loadScene(want.endsWith(".yaml") ? want : want + ".yaml");
+})();
 </script>
 </body>
 </html>

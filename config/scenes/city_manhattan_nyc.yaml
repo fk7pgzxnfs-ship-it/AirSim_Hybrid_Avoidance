@@ -1,0 +1,127 @@
+id: City_manhattan_nyc
+map:
+  x_min: 0.0
+  x_max: 558.5596907916691
+  y_min: 0.0
+  y_max: 575.6056540000611
+  resolution: 1.0
+start:
+- 8.0
+- 220.0
+goal:
+- 550.5596907916691
+- 220.0
+takeoff_height: -20.0
+route:
+  mode: astar
+use_drl: false
+altitude_margin: 2.0
+obstacles:
+- name: B009
+  x: 413.4046581748028
+  y: 68.71254700023482
+  w: 140.0
+  h: 113.42509400046964
+  height: 22.0
+  base_z: 0.0
+  kind: building
+- name: B007
+  x: 485.42980912972837
+  y: 495.26982600026827
+  w: 122.25976332388157
+  h: 99.50810800041921
+  height: 30.0
+  base_z: 0.0
+  kind: building
+- name: B013
+  x: 273.2798577003417
+  y: 520.6111210003005
+  w: 87.6428279917919
+  h: 85.98906599952116
+  height: 12.0
+  base_z: 0.0
+  kind: building
+- name: B011
+  x: 233.8477530450129
+  y: 79.91024900031749
+  w: 79.88458669977025
+  h: 90.85282599980829
+  height: 90.0
+  base_z: 0.0
+  kind: building
+- name: B034
+  x: 123.86203341795135
+  y: 133.38397400040395
+  w: 89.67514989475417
+  h: 73.06694000010069
+  height: 12.0
+  base_z: 0.0
+  kind: building
+- name: B042
+  x: 246.66150048363124
+  y: 160.8642180002983
+  w: 62.50443963054124
+  h: 70.54662800049456
+  height: 12.0
+  base_z: 0.0
+  kind: building
+- name: B057
+  x: 53.523456656969586
+  y: 446.4774700003011
+  w: 65.2704213074826
+  h: 56.06588800013952
+  height: 12.0
+  base_z: 0.0
+  kind: building
+- name: B058
+  x: 170.13741286664373
+  y: 503.007626000368
+  w: 61.48406224262702
+  h: 56.132211999343724
+  height: 12.0
+  base_z: 0.0
+  kind: building
+- name: B030
+  x: 37.39980736198004
+  y: 116.55978600054607
+  w: 50.799614723960076
+  h: 46.11728800012344
+  height: 90.0
+  base_z: 0.0
+  kind: building
+- name: B038
+  x: 305.57353708089846
+  y: 147.99736200034556
+  w: 26.95145562002486
+  h: 28.740399999697388
+  height: 29.9
+  base_z: 0.0
+  kind: building
+- name: B051
+  x: 114.18109754446229
+  y: 501.764051000366
+  w: 22.515765489479293
+  h: 30.741174000301044
+  height: 23.6
+  base_z: 0.0
+  kind: building
+- name: B048
+  x: 106.51561783239751
+  y: 451.64521500060613
+  w: 20.323219038011473
+  h: 27.7787020002404
+  height: 30.8
+  base_z: 0.0
+  kind: building
+geo:
+  source: offline-cleanup
+  place: 纽约-曼哈顿(美)
+  city_key: manhattan_nyc
+  center:
+  - 40.7527
+  - -73.9772
+  extent_m: 420.0
+  buildings_total: 12
+  removed: 2
+  imported_at: '2026-09-09 23:43:48'
+  fix_note: dedupe+relane (offline)

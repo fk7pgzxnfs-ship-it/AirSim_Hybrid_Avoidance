@@ -1,0 +1,17 @@
+
+==========================================================
+[2026-09-11 19:24:27] 启动编辑器服务: C:\Users\13631\Documents\GitHub\AirSim_Hybrid_Avoidance\AirSim Hybrid Avoidance_v1\web\_no_such_editor.py
+C:\Users\13631\AppData\Local\Programs\Python\Python313\python.exe: can't open file 'C:\\Users\\13631\\Documents\\GitHub\\AirSim_Hybrid_Avoidance\\AirSim Hybrid Avoidance_v1\\web\\_no_such_editor.py': [Errno 2] No such file or directory
+
+==========================================================
+[2026-09-11 19:24:38] 启动编辑器服务: C:\Users\13631\Documents\GitHub\AirSim_Hybrid_Avoidance\AirSim Hybrid Avoidance_v1\web\app.py
+AirSim v5.3 控制台/编辑器: http://127.0.0.1:8799  (Ctrl+C 停止)
+ * Serving Flask app 'app'
+ * Debug mode: off
+WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on http://127.0.0.1:8799
+Press CTRL+C to quit
+127.0.0.1 - - [11/Sep/2026 19:24:40] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [11/Sep/2026 19:24:40] "GET /console HTTP/1.1" 200 -
+127.0.0.1 - - [11/Sep/2026 19:24:40] "GET /api/scenes HTTP/1.1" 200 -
+127.0.0.1 - - [11/Sep/2026 19:24:40] "GET /api/status HTTP/1.1" 200 -

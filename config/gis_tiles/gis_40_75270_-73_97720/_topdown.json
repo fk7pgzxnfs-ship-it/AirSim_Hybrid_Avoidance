@@ -1,0 +1,29 @@
+{
+ "zoom": 19,
+ "width": 1400,
+ "height": 373,
+ "m_per_px": 0.1143,
+ "provider": "sat",
+ "degraded": false,
+ "tile_range": [
+  154401,
+  197050,
+  154412,
+  197053
+ ],
+ "tiles": 48,
+ "site_id": "gis_40_75270_-73_97720",
+ "lat": 40.7527,
+ "lon": -73.9772,
+ "home_alt_m": 16.636756946191937,
+ "png": "_topdown.png",
+ "cached": false,
+ "map": {
+  "x_min": -464.0,
+  "x_max": -304.0,
+  "y_min": -300.0,
+  "y_max": 300.0
+ },
+ "extent_m": 1200.0,
+ "generated_at": "2026-09-11 17:12:43"
+}

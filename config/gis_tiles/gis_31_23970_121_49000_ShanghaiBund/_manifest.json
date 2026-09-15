@@ -1,0 +1,504 @@
+{
+ "site_id": "gis_31_23970_121_49000_ShanghaiBund",
+ "lat": 31.2397,
+ "lon": 121.49,
+ "home_alt_m": -0.5166033583317171,
+ "extent_m": 1000.0,
+ "lod": 17,
+ "rings": 1,
+ "grid": 48,
+ "provider": "sat",
+ "tiles_dir": "C:/Users/13631/Documents/GitHub/AirSim_Hybrid_Avoidance/AirSim Hybrid Avoidance_v1/config/gis_tiles/gis_31_23970_121_49000_ShanghaiBund",
+ "tiles_lod_min": 16,
+ "tiles_lod_max": 17,
+ "tile_count": 50,
+ "building_total": 143,
+ "building_kept": 142,
+ "building_removed": [
+  "w165166856"
+ ],
+ "planner": {
+  "route_len_m": 500.0,
+  "route_width_m": 140.0,
+  "layout": {
+   "orient": "ns",
+   "offset_ratio": 1.8,
+   "buildings": 6
+  },
+  "obstacles": 6,
+  "dropped": 1,
+  "reachable": true,
+  "lane_tried": 1
+ },
+ "scene_yaml": "C:/Users/13631/Documents/GitHub/AirSim_Hybrid_Avoidance/AirSim Hybrid Avoidance_v1/config/scenes/gis_31_23970_121_49000_ShanghaiBund.yaml",
+ "start": [
+  -242.0,
+  318.0
+ ],
+ "goal": [
+  242.0,
+  318.0
+ ],
+ "map": {
+  "x_min": -250.0,
+  "x_max": 250.0,
+  "y_min": 182.0,
+  "y_max": 322.0
+ },
+ "footprints": "_footprints.json",
+ "bytes_total": 17555972,
+ "elapsed_s": 2.5,
+ "generated_at": "2026-09-11 12:54:16",
+ "tiles": [
+  {
+   "tile": "109767/53550/17",
+   "quadkey": "13212110211202331",
+   "lod": 17,
+   "buildings": 5,
+   "verts": 2674,
+   "tris": 9240,
+   "bytes": 604656
+  },
+  {
+   "tile": "109768/53550/17",
+   "quadkey": "13212110211203220",
+   "lod": 17,
+   "buildings": 3,
+   "verts": 2409,
+   "tris": 8938,
+   "bytes": 369192
+  },
+  {
+   "tile": "109769/53550/17",
+   "quadkey": "13212110211203221",
+   "lod": 17,
+   "buildings": 0,
+   "verts": 2304,
+   "tris": 8836,
+   "bytes": 283008
+  },
+  {
+   "tile": "109770/53550/17",
+   "quadkey": "13212110211203230",
+   "lod": 17,
+   "buildings": 2,
+   "verts": 2369,
+   "tris": 8898,
+   "bytes": 315304
+  },
+  {
+   "tile": "109771/53550/17",
+   "quadkey": "13212110211203231",
+   "lod": 17,
+   "buildings": 1,
+   "verts": 2349,
+   "tris": 8882,
+   "bytes": 547064
+  },
+  {
+   "tile": "109767/53551/17",
+   "quadkey": "13212110211202333",
+   "lod": 17,
+   "buildings": 14,
+   "verts": 3279,
+   "tris": 9892,
+   "bytes": 689284
+  },
+  {
+   "tile": "109768/53551/17",
+   "quadkey": "13212110211203222",
+   "lod": 17,
+   "buildings": 0,
+   "verts": 2304,
+   "tris": 8836,
+   "bytes": 301544
+  },
+  {
+   "tile": "109769/53551/17",
+   "quadkey": "13212110211203223",
+   "lod": 17,
+   "buildings": 2,
+   "verts": 2549,
+   "tris": 9114,
+   "bytes": 442024
+  },
+  {
+   "tile": "109770/53551/17",
+   "quadkey": "13212110211203232",
+   "lod": 17,
+   "buildings": 11,
+   "verts": 4494,
+   "tris": 11376,
+   "bytes": 733852
+  },
+  {
+   "tile": "109771/53551/17",
+   "quadkey": "13212110211203233",
+   "lod": 17,
+   "buildings": 3,
+   "verts": 3719,
+   "tris": 10510,
+   "bytes": 722800
+  },
+  {
+   "tile": "109767/53552/17",
+   "quadkey": "13212110211220111",
+   "lod": 17,
+   "buildings": 23,
+   "verts": 3269,
+   "tris": 9802,
+   "bytes": 672260
+  },
+  {
+   "tile": "109768/53552/17",
+   "quadkey": "13212110211221000",
+   "lod": 17,
+   "buildings": 0,
+   "verts": 2304,
+   "tris": 8836,
+   "bytes": 311600
+  },
+  {
+   "tile": "109769/53552/17",
+   "quadkey": "13212110211221001",
+   "lod": 17,
+   "buildings": 4,
+   "verts": 2679,
+   "tris": 9254,
+   "bytes": 531944
+  },
+  {
+   "tile": "109770/53552/17",
+   "quadkey": "13212110211221010",
+   "lod": 17,
+   "buildings": 9,
+   "verts": 3184,
+   "tris": 9820,
+   "bytes": 716536
+  },
+  {
+   "tile": "109771/53552/17",
+   "quadkey": "13212110211221011",
+   "lod": 17,
+   "buildings": 5,
+   "verts": 2739,
+   "tris": 9318,
+   "bytes": 667304
+  },
+  {
+   "tile": "109767/53553/17",
+   "quadkey": "13212110211220113",
+   "lod": 17,
+   "buildings": 41,
+   "verts": 3794,
+   "tris": 10296,
+   "bytes": 754672
+  },
+  {
+   "tile": "109768/53553/17",
+   "quadkey": "13212110211221002",
+   "lod": 17,
+   "buildings": 0,
+   "verts": 2304,
+   "tris": 8836,
+   "bytes": 336748
+  },
+  {
+   "tile": "109769/53553/17",
+   "quadkey": "13212110211221003",
+   "lod": 17,
+   "buildings": 1,
+   "verts": 2329,
+   "tris": 8858,
+   "bytes": 393624
+  },
+  {
+   "tile": "109770/53553/17",
+   "quadkey": "13212110211221012",
+   "lod": 17,
+   "buildings": 6,
+   "verts": 2759,
+   "tris": 9334,
+   "bytes": 705116
+  },
+  {
+   "tile": "109771/53553/17",
+   "quadkey": "13212110211221013",
+   "lod": 17,
+   "buildings": 6,
+   "verts": 2969,
+   "tris": 9586,
+   "bytes": 652360
+  },
+  {
+   "tile": "109767/53554/17",
+   "quadkey": "13212110211220131",
+   "lod": 17,
+   "buildings": 24,
+   "verts": 3139,
+   "tris": 9646,
+   "bytes": 755920
+  },
+  {
+   "tile": "109768/53554/17",
+   "quadkey": "13212110211221020",
+   "lod": 17,
+   "buildings": 5,
+   "verts": 2444,
+   "tris": 8964,
+   "bytes": 546848
+  },
+  {
+   "tile": "109769/53554/17",
+   "quadkey": "13212110211221021",
+   "lod": 17,
+   "buildings": 0,
+   "verts": 2304,
+   "tris": 8836,
+   "bytes": 292344
+  },
+  {
+   "tile": "109770/53554/17",
+   "quadkey": "13212110211221030",
+   "lod": 17,
+   "buildings": 5,
+   "verts": 2594,
+   "tris": 9144,
+   "bytes": 415664
+  },
+  {
+   "tile": "109771/53554/17",
+   "quadkey": "13212110211221031",
+   "lod": 17,
+   "buildings": 5,
+   "verts": 2609,
+   "tris": 9160,
+   "bytes": 712176
+  },
+  {
+   "tile": "54882/26774/16",
+   "quadkey": "1321211021120230",
+   "lod": 16,
+   "buildings": 0,
+   "verts": 576,
+   "tris": 2116,
+   "bytes": 188024
+  },
+  {
+   "tile": "54883/26774/16",
+   "quadkey": "1321211021120231",
+   "lod": 16,
+   "buildings": 0,
+   "verts": 576,
+   "tris": 2116,
+   "bytes": 185300
+  },
+  {
+   "tile": "54884/26774/16",
+   "quadkey": "1321211021120320",
+   "lod": 16,
+   "buildings": 0,
+   "verts": 576,
+   "tris": 2116,
+   "bytes": 183308
+  },
+  {
+   "tile": "54885/26774/16",
+   "quadkey": "1321211021120321",
+   "lod": 16,
+   "buildings": 0,
+   "verts": 576,
+   "tris": 2116,
+   "bytes": 123596
+  },
+  {
+   "tile": "54886/26774/16",
+   "quadkey": "1321211021120330",
+   "lod": 16,
+   "buildings": 0,
+   "verts": 576,
+   "tris": 2116,
+   "bytes": 86396
+  },
+  {
+   "tile": "54882/26775/16",
+   "quadkey": "1321211021120232",
+   "lod": 16,
+   "buildings": 0,
+   "verts": 576,
+   "tris": 2116,
+   "bytes": 183448
+  },
+  {
+   "tile": "54883/26775/16",
+   "quadkey": "1321211021120233",
+   "lod": 16,
+   "buildings": 0,
+   "verts": 576,
+   "tris": 2116,
+   "bytes": 182860
+  },
+  {
+   "tile": "54884/26775/16",
+   "quadkey": "1321211021120322",
+   "lod": 16,
+   "buildings": 0,
+   "verts": 576,
+   "tris": 2116,
+   "bytes": 92328
+  },
+  {
+   "tile": "54885/26775/16",
+   "quadkey": "1321211021120323",
+   "lod": 16,
+   "buildings": 0,
+   "verts": 576,
+   "tris": 2116,
+   "bytes": 152196
+  },
+  {
+   "tile": "54886/26775/16",
+   "quadkey": "1321211021120332",
+   "lod": 16,
+   "buildings": 0,
+   "verts": 576,
+   "tris": 2116,
+   "bytes": 178132
+  },
+  {
+   "tile": "54882/26776/16",
+   "quadkey": "1321211021122010",
+   "lod": 16,
+   "buildings": 0,
+   "verts": 576,
+   "tris": 2116,
+   "bytes": 193944
+  },
+  {
+   "tile": "54883/26776/16",
+   "quadkey": "1321211021122011",
+   "lod": 16,
+   "buildings": 0,
+   "verts": 576,
+   "tris": 2116,
+   "bytes": 186904
+  },
+  {
+   "tile": "54884/26776/16",
+   "quadkey": "1321211021122100",
+   "lod": 16,
+   "buildings": 0,
+   "verts": 576,
+   "tris": 2116,
+   "bytes": 107248
+  },
+  {
+   "tile": "54885/26776/16",
+   "quadkey": "1321211021122101",
+   "lod": 16,
+   "buildings": 0,
+   "verts": 576,
+   "tris": 2116,
+   "bytes": 183528
+  },
+  {
+   "tile": "54886/26776/16",
+   "quadkey": "1321211021122110",
+   "lod": 16,
+   "buildings": 0,
+   "verts": 576,
+   "tris": 2116,
+   "bytes": 174076
+  },
+  {
+   "tile": "54882/26777/16",
+   "quadkey": "1321211021122012",
+   "lod": 16,
+   "buildings": 0,
+   "verts": 576,
+   "tris": 2116,
+   "bytes": 192324
+  },
+  {
+   "tile": "54883/26777/16",
+   "quadkey": "1321211021122013",
+   "lod": 16,
+   "buildings": 0,
+   "verts": 576,
+   "tris": 2116,
+   "bytes": 194056
+  },
+  {
+   "tile": "54884/26777/16",
+   "quadkey": "1321211021122102",
+   "lod": 16,
+   "buildings": 0,
+   "verts": 576,
+   "tris": 2116,
+   "bytes": 141440
+  },
+  {
+   "tile": "54885/26777/16",
+   "quadkey": "1321211021122103",
+   "lod": 16,
+   "buildings": 0,
+   "verts": 576,
+   "tris": 2116,
+   "bytes": 128848
+  },
+  {
+   "tile": "54886/26777/16",
+   "quadkey": "1321211021122112",
+   "lod": 16,
+   "buildings": 0,
+   "verts": 576,
+   "tris": 2116,
+   "bytes": 178372
+  },
+  {
+   "tile": "54882/26778/16",
+   "quadkey": "1321211021122030",
+   "lod": 16,
+   "buildings": 0,
+   "verts": 576,
+   "tris": 2116,
+   "bytes": 194952
+  },
+  {
+   "tile": "54883/26778/16",
+   "quadkey": "1321211021122031",
+   "lod": 16,
+   "buildings": 0,
+   "verts": 576,
+   "tris": 2116,
+   "bytes": 187292
+  },
+  {
+   "tile": "54884/26778/16",
+   "quadkey": "1321211021122120",
+   "lod": 16,
+   "buildings": 0,
+   "verts": 576,
+   "tris": 2116,
+   "bytes": 185264
+  },
+  {
+   "tile": "54885/26778/16",
+   "quadkey": "1321211021122121",
+   "lod": 16,
+   "buildings": 0,
+   "verts": 576,
+   "tris": 2116,
+   "bytes": 147996
+  },
+  {
+   "tile": "54886/26778/16",
+   "quadkey": "1321211021122130",
+   "lod": 16,
+   "buildings": 0,
+   "verts": 576,
+   "tris": 2116,
+   "bytes": 130296
+  }
+ ]
+}

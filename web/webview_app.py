@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""web/webview_app.py - AirSim v3 Windows 原生弹窗（WebView2 内核渲染 Web 控制台）
+"""web/webview_app.py - AirSim v5.5 Windows 原生弹窗（WebView2 内核渲染 Web 控制台）
 
 两种运行方式:
   1) 开发模式:  python main.py / python web/webview_app.py
@@ -21,10 +21,6 @@ import sys
 import threading
 import time
 
-from web._stdout import setup_stdout
-setup_stdout()
-
-
 def _detect_root():
     """数据根目录：打包模式取 exe 所在目录，开发模式取项目根"""
     env = os.environ.get('AIRSIM_ROOT')
@@ -40,13 +36,22 @@ if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 os.environ['AIRSIM_ROOT'] = ROOT
 
+# 先把包父目录放进 sys.path 再导入 web.*：否则 `python web/webview_app.py`
+# （以及 main.py 的启动方式）会因为 sys.path[0] 是 web/ 而 ModuleNotFoundError。
+from web._stdout import setup_stdout
+
+setup_stdout()
+
 import webview  # noqa: E402
 
 from web.app import app as flask_app  # noqa: E402
 
-PORT = 8787
+try:
+    PORT = int(os.environ.get("AIRSIM_PORT", "8787"))
+except ValueError:
+    PORT = 8787
 URL = 'http://127.0.0.1:%d/console' % PORT
-WINDOW_TITLE = 'AirSim v3.1 \u63a7\u5236\u53f0'
+WINDOW_TITLE = 'AirSim v5.5 \u63a7\u5236\u53f0'
 
 
 def _port_open(port, timeout=0.3):

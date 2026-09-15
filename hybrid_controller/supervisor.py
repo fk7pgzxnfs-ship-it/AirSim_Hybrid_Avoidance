@@ -92,8 +92,10 @@ class Supervisor:
         # DRL 局部规划器
         drl_cfg = cfg['drl']
         agent = None
+        # v4: 场景可声明 use_drl: false -> 纯 A* 飞行（城市/自定义布局在
+        # 未针对性重训前可选用，避免未训练模型扰动航线）
         ckpt = cfg['model'].get('load_checkpoint', '')
-        if cfg['model'].get('enable', True) and ckpt:
+        if cfg['model'].get('enable', True) and scene.use_drl and ckpt:
             ckpt_path = os.path.join(cfg['model'].get('save_dir', 'models/drl_agent'), ckpt)
             if os.path.exists(ckpt_path):
                 from drl.agent import DRLAgent

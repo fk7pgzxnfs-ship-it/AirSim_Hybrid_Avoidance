@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""AirSim Hybrid Avoidance v3 - 统一入口
+"""AirSim Hybrid Avoidance v5.6 - 统一入口
 
 用法:
   python main.py                    弹出 Windows 原生控制台窗口（WebView2 内核，现代界面）
@@ -34,6 +34,9 @@ SCRIPTS = {
     'train': os.path.join(ROOT, 'scripts', 'train', 'train_drl_v2.py'),
     'editor': os.path.join(ROOT, 'web', 'app.py'),
 }
+LOG_DIR = os.path.join(ROOT, 'logs')
+EDITOR_LOG = os.path.join(LOG_DIR, 'editor_server.log')
+EDITOR_PORT = int(os.environ.get('AIRSIM_PORT', '8787') or '8787')
 
 
 def check_ue(timeout=2.0):
@@ -115,17 +118,93 @@ def cmd_train(scene_path=None):
     return run_script(SCRIPTS['train'], args, 'DRL 重训（会覆盖 ddpg_best.pth）')
 
 
-def _ensure_server():
-    """确保 8787 端口有 Flask 服务在跑；返回是否本次启动"""
+def _port_open(port, timeout=0.4):
     try:
-        s = socket.create_connection(('127.0.0.1', 8787), timeout=0.5)
+        s = socket.create_connection(('127.0.0.1', port), timeout=timeout)
         s.close()
-        return False
+        return True
     except OSError:
-        pass
-    subprocess.Popen([PY, SCRIPTS['editor']], cwd=ROOT,
-                     creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
-    return True
+        return False
+
+
+def _tail_log(path, n=15, offset=0):
+    """读取日志文件 offset 之后的最后 n 行（只看本次启动产生的输出）"""
+    try:
+        with open(path, 'rb') as f:
+            f.seek(offset)
+            data = f.read()
+        lines = [ln for ln in data.decode('utf-8', 'replace').splitlines() if ln.strip()]
+        return '\n'.join(lines[-n:])
+    except Exception:
+        return ''
+
+
+def _ensure_server(wait_s=25.0):
+    """确保 127.0.0.1:<EDITOR_PORT> 有 Flask 服务在跑。
+
+    返回 True = 服务可连接；False = 启动失败/超时。
+    失败时打印可操作的排查信息，子进程输出留在 logs/editor_server.log。
+    """
+    if _port_open(EDITOR_PORT):
+        return True
+
+    offset = 0
+    log = None
+    try:
+        os.makedirs(LOG_DIR, exist_ok=True)
+        if os.path.isfile(EDITOR_LOG):
+            offset = os.path.getsize(EDITOR_LOG)
+        log = open(EDITOR_LOG, 'ab')
+    except OSError as e:
+        print('无法写入日志 %s: %s' % (EDITOR_LOG, e))
+
+    if log is not None:
+        log.write(('\n%s\n[%s] 启动编辑器服务: %s\n'
+                   % ('=' * 58, time.strftime('%Y-%m-%d %H:%M:%S'),
+                      SCRIPTS['editor'])).encode('utf-8'))
+        log.flush()
+
+    try:
+        subprocess.Popen([PY, '-X', 'utf8', SCRIPTS['editor']], cwd=ROOT,
+                         stdout=(log if log is not None else subprocess.DEVNULL),
+                         stderr=subprocess.STDOUT,
+                         creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+    except OSError as e:
+        print('启动编辑器服务失败: %s' % e)
+        return False
+
+    print('正在启动编辑器服务 ...', end='')
+    t0 = time.time()
+    while time.time() - t0 < wait_s:
+        if _port_open(EDITOR_PORT):
+            print(' 就绪（%.1f 秒）' % (time.time() - t0))
+            return True
+        time.sleep(0.3)
+
+    print(' 超时')
+    print('-' * 58)
+    print('编辑器服务未能启动（%.0f 秒内 127.0.0.1:%d 无响应）。'
+          % (wait_s, EDITOR_PORT))
+    print('页面会一直空白/无法操作，常见原因:')
+    print('  1) 缺依赖      pip install -r requirements.txt')
+    print('  2) 端口被占用  上一次的进程未退出（换机/重启后仍占用）')
+    print('  3) 代码报错    见日志 %s' % os.path.relpath(EDITOR_LOG, ROOT))
+    print('-' * 58)
+    tail = _tail_log(EDITOR_LOG, 15, offset)
+    if tail:
+        print('最近日志:')
+        print(tail)
+        print('-' * 58)
+    return False
+
+
+def _open_url(url):
+    try:
+        import webbrowser
+        webbrowser.open(url)
+        return True
+    except Exception:
+        return False
 
 
 def _open_native_window():
@@ -139,46 +218,34 @@ def _open_native_window():
 
 
 def cmd_console():
-    url = 'http://127.0.0.1:8787/console'
+    url = 'http://127.0.0.1:%d/console' % EDITOR_PORT
     if _open_native_window():
         return 0
-    started = _ensure_server()
+    if not _ensure_server():
+        return 1
     print('打开控制台: %s' % url)
-    try:
-        import webbrowser
-        webbrowser.open(url)
-    except Exception:
-        pass
-    if started:
-        time.sleep(1.5)
+    if not _open_url(url):
+        print('浏览器未能自动打开，请手动访问上面的地址。')
     return 0
 
 
 def cmd_console_browser():
-    started = _ensure_server()
-    url = 'http://127.0.0.1:8787/console'
+    url = 'http://127.0.0.1:%d/console' % EDITOR_PORT
+    if not _ensure_server():
+        return 1
     print('打开控制台: %s' % url)
-    try:
-        import webbrowser
-        webbrowser.open(url)
-    except Exception:
-        pass
-    if started:
-        time.sleep(1.5)
+    if not _open_url(url):
+        print('浏览器未能自动打开，请手动访问上面的地址。')
     return 0
 
 
 def cmd_editor():
-    started = _ensure_server()
-    url = 'http://127.0.0.1:8787/'
+    url = 'http://127.0.0.1:%d/' % EDITOR_PORT
+    if not _ensure_server():
+        return 1
     print('打开网页场景编辑器: %s' % url)
-    try:
-        import webbrowser
-        webbrowser.open(url)
-    except Exception:
-        pass
-    if started:
-        time.sleep(1.5)
+    if not _open_url(url):
+        print('浏览器未能自动打开，请手动访问上面的地址。')
     return 0
 
 
@@ -187,7 +254,7 @@ def menu(init_scene=None):
     while True:
         print('')
         print('=' * 60)
-        print(' AirSim Hybrid Avoidance v3  -  无人机混合避障导航')
+        print(' AirSim Hybrid Avoidance v5.6  -  无人机混合避障导航')
         print('=' * 60)
         # 状态栏
         ue = '已连接 (端口 %d)' % UE_PORT if check_ue() else '未连接（先启动 UE 再飞行）'

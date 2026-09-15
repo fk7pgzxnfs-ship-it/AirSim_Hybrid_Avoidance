@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-web/app.py - v3 网页场景编辑器后端（Flask）
+web/app.py - v5.6 网页场景编辑器后端（Flask）
 ================================================
 启动: python main.py --editor  （或 python web/app.py）
 功能: 场景列表 / 加载 / 编辑 / 校验(可达性) / 保存 yaml
@@ -8,8 +8,6 @@ web/app.py - v3 网页场景编辑器后端（Flask）
 import os
 import sys
 
-from web._stdout import setup_stdout
-setup_stdout()
 
 def _detect_root():
     env = os.environ.get("AIRSIM_ROOT")
@@ -22,6 +20,12 @@ ROOT = _detect_root()
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
+# 先把包父目录放进 sys.path 再导入 web.*：否则 `python web/app.py`
+# （main.py 启动编辑器的方式）会因为 sys.path[0] 是 web/ 而 ModuleNotFoundError。
+from web._stdout import setup_stdout
+
+setup_stdout()
+
 import glob
 import json
 import subprocess
@@ -31,13 +35,24 @@ import time
 from flask import Flask, request, jsonify, send_from_directory
 
 from scene_config import SceneConfig, DEFAULT_SCENES_DIR
+import worldgen
 from airsim_interface.projectairsim_client import check_connection
 
 app = Flask(__name__,
             static_folder=os.path.join(ROOT, "web", "static"),
             static_url_path="/static")
 SCENES_DIR = DEFAULT_SCENES_DIR
-PORT = 8787
+try:
+    PORT = int(os.environ.get("AIRSIM_PORT", "8787"))
+except ValueError:
+    PORT = 8787
+
+# v5.0 GIS 真实地形 + 真实建筑 接口（/api/gis/*）
+try:
+    from web.gis_api import bp as gis_bp
+    app.register_blueprint(gis_bp)
+except Exception as _exc:  # noqa: BLE001
+    print("[warn] GIS 接口未注册: %s" % _exc)
 
 
 def _safe_name(name):
@@ -49,7 +64,7 @@ def _safe_name(name):
 
 @app.route("/")
 def index():
-    return send_from_directory("static", "index.html")
+    return send_from_directory(os.path.join(ROOT, "web", "static"), "index.html")
 
 
 @app.route("/api/scenes")
@@ -134,6 +149,207 @@ def _read_stdout(proc):
     with TASK["lock"]:
         TASK["code"] = proc.returncode
         TASK["proc"] = None
+
+
+# =====================================================================
+# v4: 随机障碍生成
+# =====================================================================
+@app.route("/api/obstacles/random", methods=["POST"])
+def random_obstacles_api():
+    data = request.get_json(force=True) or {}
+    scene_data = data.get("scene")
+    if not scene_data:
+        return jsonify({"ok": False, "error": "缺少 scene"}), 400
+    try:
+        scene = SceneConfig.from_dict(scene_data)
+        obs, info = worldgen.random_obstacles(
+            scene,
+            count=int(data.get("count", 4)),
+            w_min=float(data.get("w_min", 1.5)),
+            w_max=float(data.get("w_max", 3.0)),
+            h_min=float(data.get("h_min", 1.5)),
+            h_max=float(data.get("h_max", 3.0)),
+            height_min=float(data.get("height_min", 10.0)),
+            height_max=float(data.get("height_max", 16.0)),
+            floating_ratio=float(data.get("floating_ratio", 0.0)),
+            seed=data.get("seed") if data.get("seed") is not None else None,
+            replace=bool(data.get("replace", False)),
+        )
+    except Exception as e:
+        return jsonify({"ok": False, "error": "%s" % e}), 400
+    scene.obstacles = obs
+    errs = scene.validate()
+    if errs:
+        return jsonify({"ok": False, "errors": errs}), 400
+    return jsonify({"ok": True, "scene": scene.to_dict(), "info": info})
+
+
+# =====================================================================
+# v4: 真实城市一键导入（后台线程，避免长时间阻塞其他请求）
+# =====================================================================
+GEO_TASK = {"lock": threading.Lock(), "busy": False, "scene": None,
+            "name": "", "error": "", "message": ""}
+
+
+def _geo_import_worker(params):
+    try:
+        scene, info = worldgen.import_city(
+            preset_id=params.get("preset_id"),
+            place=params.get("place"),
+            lat=params.get("lat"),
+            lon=params.get("lon"),
+            extent_m=float(params.get("extent_m") or 0) or 600.0,
+            offline_only=bool(params.get("offline_only")),
+            refresh=bool(params.get("refresh")),
+            label=params.get("label"),
+        )
+        key = info.get("preset", "geo")
+        name = "city_%s.yaml" % str(key).replace("City_", "")
+        with GEO_TASK["lock"]:
+            GEO_TASK["scene"] = scene.to_dict()
+            GEO_TASK["name"] = name
+            GEO_TASK["message"] = ("已导入 %d 栋建筑（离线缓存）" if info.get("cached") else
+                                   "已导入 %d 栋建筑（OSM 在线）") % len(scene.obstacles)
+            GEO_TASK["busy"] = False
+    except Exception as exc:
+        with GEO_TASK["lock"]:
+            GEO_TASK["error"] = "%s" % exc
+            GEO_TASK["busy"] = False
+
+
+@app.route("/api/geo/presets")
+def geo_presets():
+    out = []
+    for p in worldgen.PRESETS:
+        out.append({"id": p["id"], "name": p["name"],
+                    "lat": p["lat"], "lon": p["lon"],
+                    "extent_m": p.get("extent_m", 600),
+                    "cached": os.path.isfile(worldgen.cache_path(p["id"]))})
+    return jsonify({"presets": out})
+
+
+@app.route("/api/geo/search")
+def geo_search():
+    """Nominatim 地名检索 -> 候选列表（全球任意地区选点用）"""
+    q = (request.args.get("q") or "").strip()
+    if not q:
+        return jsonify({"ok": False, "error": "缺少 q"}), 400
+    try:
+        limit = int(request.args.get("limit", 6))
+        provider = request.args.get("provider") or None
+        results = worldgen.geocode_candidates(q, limit=limit, provider=provider, timeout=8)
+    except Exception as exc:
+        return jsonify({"ok": False, "error": "%s" % exc}), 502
+    return jsonify({"ok": True, "results": results})
+
+
+@app.route("/api/geo/reverse")
+def geo_reverse():
+    """坐标 -> 地名（Nominatim reverse）"""
+    lat = request.args.get("lat", type=float)
+    lon = request.args.get("lon", type=float)
+    if lat is None or lon is None:
+        return jsonify({"ok": False, "error": "缺少 lat/lon"}), 400
+    try:
+        name = worldgen.reverse_geocode(lat, lon, timeout=8)
+    except Exception as exc:
+        return jsonify({"ok": False, "error": "%s" % exc}), 502
+    return jsonify({"ok": True, "name": name})
+
+
+@app.route("/api/geo/import", methods=["POST"])
+def geo_import():
+    data = request.get_json(force=True) or {}
+    with GEO_TASK["lock"]:
+        if GEO_TASK["busy"]:
+            return jsonify({"ok": False, "error": "已有导入任务在运行"}), 409
+        GEO_TASK["busy"] = True
+        GEO_TASK["scene"] = None
+        GEO_TASK["name"] = ""
+        GEO_TASK["error"] = ""
+        GEO_TASK["message"] = "导入中…"
+    threading.Thread(target=_geo_import_worker, args=(data,), daemon=True).start()
+    return jsonify({"ok": True, "message": "导入任务已开始"})
+
+
+@app.route("/api/geo/status")
+def geo_status():
+    with GEO_TASK["lock"]:
+        return jsonify({"busy": GEO_TASK["busy"], "scene": GEO_TASK["scene"],
+                        "error": GEO_TASK["error"], "message": GEO_TASK["message"],
+                        "name": GEO_TASK.get("name", "")})
+
+
+# =====================================================================
+# 数据源连通性自检（v5.5）
+# 预览/生成依赖四个外部源，任意一个被网络挡住都会表现为"刷不出来"。
+# 这里并行探一次，把"到底卡在哪一步"直接摆到界面上，避免用户瞎猜。
+# =====================================================================
+NET_SOURCES = [
+    ("imagery", "卫星影像 (Esri World Imagery)",
+     "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/3/3/3"),
+    ("topo", "地形图 (Esri World Topo)",
+     "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/3/3/3"),
+    ("dem", "高程 DEM (AWS Terrarium)",
+     "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/3/3/3.png"),
+    ("overpass", "OSM 建筑轮廓 (Overpass)",
+     "https://overpass-api.de/api/status"),
+    ("geocode", "地名检索 (Photon)",
+     "https://photon.komoot.io/api/?q=tokyo&limit=1"),
+]
+
+
+def _probe_source(item, timeout=6.0):
+    key, label, url = item
+    import urllib.request
+    t0 = time.time()
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "AirSimHybridAvoidance/5.5"})
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            resp.read(256)
+            return {"key": key, "label": label, "ok": True, "status": resp.status,
+                    "ms": int((time.time() - t0) * 1000), "error": ""}
+    except Exception as exc:  # noqa: BLE001
+        return {"key": key, "label": label, "ok": False, "status": 0,
+                "ms": int((time.time() - t0) * 1000),
+                "error": "%s: %s" % (type(exc).__name__, exc)}
+
+
+@app.route("/api/net/check")
+def net_check():
+    """并行探测所有外部数据源。?reset=1 同时清掉 Overpass 冷却，强制重试。"""
+    if request.args.get("reset"):
+        try:
+            import gis_tiles
+            gis_tiles.overpass_reset()
+        except Exception:  # noqa: BLE001
+            pass
+    results = [None] * len(NET_SOURCES)
+    threads = []
+    for i, item in enumerate(NET_SOURCES):
+        th = threading.Thread(target=lambda i=i, it=item: results.__setitem__(i, _probe_source(it)),
+                              daemon=True)
+        th.start()
+        threads.append(th)
+    for th in threads:
+        th.join(timeout=9.0)
+    out = [r for r in results if r]
+    for i, r in enumerate(results):
+        if r is None:
+            out.append({"key": NET_SOURCES[i][0], "label": NET_SOURCES[i][1],
+                        "ok": False, "status": 0, "ms": 9000, "error": "探测超时"})
+    cd = 0.0
+    last_err = ""
+    try:
+        import gis_tiles
+        cd = gis_tiles.overpass_cooldown_left()
+        last_err = gis_tiles.overpass_last_error()
+    except Exception:  # noqa: BLE001
+        pass
+    return jsonify({"ok": True, "sources": out,
+                    "overpass_cooldown_s": round(cd, 1),
+                    "overpass_last_error": last_err,
+                    "checked_at": time.strftime("%H:%M:%S")})
 
 
 # =====================================================================
@@ -280,7 +496,7 @@ def ue_config_save():
 
 @app.route("/console")
 def console_page():
-    return send_from_directory("static", "console.html")
+    return send_from_directory(os.path.join(ROOT, "web", "static"), "console.html")
 
 
 @app.route("/api/status")
@@ -345,5 +561,5 @@ def api_log():
 
 
 if __name__ == "__main__":
-    print("AirSim v3 控制台/编辑器: http://127.0.0.1:%d  (Ctrl+C 停止)" % PORT)
+    print("AirSim v5.3 控制台/编辑器: http://127.0.0.1:%d  (Ctrl+C 停止)" % PORT)
     app.run(host="127.0.0.1", port=PORT, debug=False)

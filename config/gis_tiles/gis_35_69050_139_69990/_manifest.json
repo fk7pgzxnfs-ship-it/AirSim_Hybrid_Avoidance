@@ -1,0 +1,164 @@
+{
+ "site_id": "gis_35_69050_139_69990",
+ "lat": 35.6905,
+ "lon": 139.6999,
+ "home_alt_m": 51.75991563116994,
+ "extent_m": 400.0,
+ "lod": 17,
+ "rings": 1,
+ "grid": 32,
+ "provider": "sat",
+ "tiles_dir": "C:/Users/13631/Documents/GitHub/AirSim_Hybrid_Avoidance/AirSim Hybrid Avoidance_v1/config/gis_tiles/gis_35_69050_139_69990",
+ "tiles_lod_min": 16,
+ "tiles_lod_max": 17,
+ "tile_count": 13,
+ "building_total": 596,
+ "building_kept": 591,
+ "building_removed": [
+  "w116589911",
+  "w138522698",
+  "w155235338",
+  "w170231407",
+  "w170231440"
+ ],
+ "planner": {
+  "route_len_m": 600.0,
+  "route_width_m": 160.0,
+  "obstacles": 110,
+  "dropped": 5,
+  "reachable": true,
+  "lane_tried": 1
+ },
+ "scene_yaml": "C:/Users/13631/Documents/GitHub/AirSim_Hybrid_Avoidance/AirSim Hybrid Avoidance_v1/config/scenes/gis_35_69050_139_69990.yaml",
+ "start": [
+  -292.0,
+  -8.0
+ ],
+ "goal": [
+  292.0,
+  -8.0
+ ],
+ "footprints": "_footprints.json",
+ "bytes_total": 4137096,
+ "elapsed_s": 16.4,
+ "generated_at": "2026-09-11 12:32:32",
+ "tiles": [
+  {
+   "tile": "116398/51608/17",
+   "quadkey": "13300211230123110",
+   "lod": 17,
+   "buildings": 41,
+   "verts": 3194,
+   "tris": 6116,
+   "bytes": 632152
+  },
+  {
+   "tile": "116399/51608/17",
+   "quadkey": "13300211230123111",
+   "lod": 17,
+   "buildings": 94,
+   "verts": 4009,
+   "tris": 6676,
+   "bytes": 671964
+  },
+  {
+   "tile": "116398/51609/17",
+   "quadkey": "13300211230123112",
+   "lod": 17,
+   "buildings": 137,
+   "verts": 5659,
+   "tris": 8306,
+   "bytes": 750300
+  },
+  {
+   "tile": "116399/51609/17",
+   "quadkey": "13300211230123113",
+   "lod": 17,
+   "buildings": 28,
+   "verts": 2324,
+   "tris": 5178,
+   "bytes": 562560
+  },
+  {
+   "tile": "58198/25803/16",
+   "quadkey": "1330021123012132",
+   "lod": 16,
+   "buildings": 0,
+   "verts": 256,
+   "tris": 900,
+   "bytes": 167904
+  },
+  {
+   "tile": "58199/25803/16",
+   "quadkey": "1330021123012133",
+   "lod": 16,
+   "buildings": 0,
+   "verts": 256,
+   "tris": 900,
+   "bytes": 173072
+  },
+  {
+   "tile": "58200/25803/16",
+   "quadkey": "1330021123013022",
+   "lod": 16,
+   "buildings": 0,
+   "verts": 256,
+   "tris": 900,
+   "bytes": 179480
+  },
+  {
+   "tile": "58198/25804/16",
+   "quadkey": "1330021123012310",
+   "lod": 16,
+   "buildings": 0,
+   "verts": 256,
+   "tris": 900,
+   "bytes": 157832
+  },
+  {
+   "tile": "58199/25804/16",
+   "quadkey": "1330021123012311",
+   "lod": 16,
+   "buildings": 0,
+   "verts": 256,
+   "tris": 900,
+   "bytes": 167372
+  },
+  {
+   "tile": "58200/25804/16",
+   "quadkey": "1330021123013200",
+   "lod": 16,
+   "buildings": 0,
+   "verts": 256,
+   "tris": 900,
+   "bytes": 175824
+  },
+  {
+   "tile": "58198/25805/16",
+   "quadkey": "1330021123012312",
+   "lod": 16,
+   "buildings": 0,
+   "verts": 256,
+   "tris": 900,
+   "bytes": 166156
+  },
+  {
+   "tile": "58199/25805/16",
+   "quadkey": "1330021123012313",
+   "lod": 16,
+   "buildings": 0,
+   "verts": 256,
+   "tris": 900,
+   "bytes": 167652
+  },
+  {
+   "tile": "58200/25805/16",
+   "quadkey": "1330021123013202",
+   "lod": 16,
+   "buildings": 0,
+   "verts": 256,
+   "tris": 900,
+   "bytes": 164828
+  }
+ ]
+}

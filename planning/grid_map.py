@@ -39,16 +39,18 @@ class GridMap:
         # 计算障碍物覆盖的栅格范围
         cx, cy = self.world_to_grid(x, y)
         radius_cells = int(radius / self.resolution) + 1
-
-        for i in range(max(0, cy - radius_cells),
-                       min(self.height, cy + radius_cells + 1)):
-            for j in range(max(0, cx - radius_cells),
-                           min(self.width, cx + radius_cells + 1)):
-                # 检查是否在圆形范围内
-                gx, gy = self.grid_to_world(j, i)
-                dist = np.sqrt((gx - x) ** 2 + (gy - y) ** 2)
-                if dist <= radius:
-                    self.grid[i, j] = 1
+        i0 = max(0, cy - radius_cells)
+        i1 = min(self.height, cy + radius_cells + 1)
+        j0 = max(0, cx - radius_cells)
+        j1 = min(self.width, cx + radius_cells + 1)
+        if i0 >= i1 or j0 >= j1:
+            return
+        # 向量化：一次性算完子块内所有格心到圆心的距离（与原逐格循环等价）
+        dx = self.x_min + (np.arange(j0, j1) + 0.5) * self.resolution - x
+        dy = self.y_min + (np.arange(i0, i1) + 0.5) * self.resolution - y
+        mask = (dy[:, None] ** 2 + dx[None, :] ** 2) <= radius * radius
+        block = self.grid[i0:i1, j0:j1]
+        block[mask] = 1
 
     def add_obstacle_list(self, obstacles: list) -> None:
         """批量添加障碍物 [[x, y, radius], ...]"""

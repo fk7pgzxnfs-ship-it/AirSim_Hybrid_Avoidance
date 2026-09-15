@@ -1,0 +1,139 @@
+{
+ "site_id": "gis_48_85840_2_29450_Eiffel",
+ "lat": 48.8584,
+ "lon": 2.2945,
+ "home_alt_m": 40.982405761154375,
+ "extent_m": 600.0,
+ "lod": 16,
+ "rings": 0,
+ "grid": 32,
+ "provider": "sat",
+ "tiles_dir": "C:/Users/13631/Documents/GitHub/AirSim_Hybrid_Avoidance/AirSim Hybrid Avoidance_v1/config/gis_tiles/gis_48_85840_2_29450_Eiffel",
+ "tiles_lod_min": 16,
+ "tiles_lod_max": 16,
+ "tile_count": 9,
+ "building_total": 169,
+ "building_kept": 164,
+ "building_removed": [
+  "w69034517",
+  "w69034535",
+  "w69040934",
+  "w69040991",
+  "w69045140"
+ ],
+ "planner": {
+  "route_len_m": 400.0,
+  "route_width_m": 120.0,
+  "layout": {
+   "orient": "ns",
+   "offset_ratio": 2.4,
+   "buildings": 57
+  },
+  "obstacles": 67,
+  "dropped": 5,
+  "reachable": true,
+  "lane_tried": 1
+ },
+ "scene_yaml": "C:/Users/13631/Documents/GitHub/AirSim_Hybrid_Avoidance/AirSim Hybrid Avoidance_v1/config/scenes/gis_48_85840_2_29450_Eiffel.yaml",
+ "start": [
+  -192.0,
+  338.0
+ ],
+ "goal": [
+  192.0,
+  338.0
+ ],
+ "map": {
+  "x_min": -200.0,
+  "x_max": 200.0,
+  "y_min": 228.0,
+  "y_max": 348.0
+ },
+ "footprints": "_footprints.json",
+ "bytes_total": 5698976,
+ "elapsed_s": 26.5,
+ "generated_at": "2026-09-11 13:10:18",
+ "tiles": [
+  {
+   "tile": "33184/22544/16",
+   "quadkey": "1202200110120000",
+   "lod": 16,
+   "buildings": 0,
+   "verts": 1024,
+   "tris": 3844,
+   "bytes": 613452
+  },
+  {
+   "tile": "33185/22544/16",
+   "quadkey": "1202200110120001",
+   "lod": 16,
+   "buildings": 1,
+   "verts": 1049,
+   "tris": 3866,
+   "bytes": 600908
+  },
+  {
+   "tile": "33186/22544/16",
+   "quadkey": "1202200110120010",
+   "lod": 16,
+   "buildings": 1,
+   "verts": 1529,
+   "tris": 4440,
+   "bytes": 576804
+  },
+  {
+   "tile": "33184/22545/16",
+   "quadkey": "1202200110120002",
+   "lod": 16,
+   "buildings": 1,
+   "verts": 1154,
+   "tris": 3992,
+   "bytes": 583932
+  },
+  {
+   "tile": "33185/22545/16",
+   "quadkey": "1202200110120003",
+   "lod": 16,
+   "buildings": 30,
+   "verts": 3729,
+   "tris": 6842,
+   "bytes": 649384
+  },
+  {
+   "tile": "33186/22545/16",
+   "quadkey": "1202200110120012",
+   "lod": 16,
+   "buildings": 80,
+   "verts": 7449,
+   "tris": 10890,
+   "bytes": 810572
+  },
+  {
+   "tile": "33184/22546/16",
+   "quadkey": "1202200110120020",
+   "lod": 16,
+   "buildings": 1,
+   "verts": 1154,
+   "tris": 3992,
+   "bytes": 536888
+  },
+  {
+   "tile": "33185/22546/16",
+   "quadkey": "1202200110120021",
+   "lod": 16,
+   "buildings": 53,
+   "verts": 5404,
+   "tris": 8666,
+   "bytes": 725772
+  },
+  {
+   "tile": "33186/22546/16",
+   "quadkey": "1202200110120030",
+   "lod": 16,
+   "buildings": 11,
+   "verts": 1374,
+   "tris": 4174,
+   "bytes": 601264
+  }
+ ]
+}

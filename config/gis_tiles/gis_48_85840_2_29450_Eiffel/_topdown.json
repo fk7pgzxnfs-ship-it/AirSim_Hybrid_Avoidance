@@ -1,0 +1,29 @@
+{
+ "zoom": 17,
+ "width": 420,
+ "height": 1400,
+ "m_per_px": 0.9524,
+ "provider": "sat",
+ "degraded": false,
+ "tile_range": [
+  66372,
+  45090,
+  66373,
+  45092
+ ],
+ "tiles": 6,
+ "site_id": "gis_48_85840_2_29450_Eiffel",
+ "lat": 48.8584,
+ "lon": 2.2945,
+ "home_alt_m": 40.982405761154375,
+ "png": "_topdown.png",
+ "cached": false,
+ "map": {
+  "x_min": -200.0,
+  "x_max": 200.0,
+  "y_min": 228.0,
+  "y_max": 348.0
+ },
+ "extent_m": 600.0,
+ "generated_at": "2026-09-11 13:10:20"
+}

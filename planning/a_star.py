@@ -4,6 +4,8 @@ A* 路径规划算法实现
 """
 
 import heapq
+import math
+
 import numpy as np
 
 
@@ -46,55 +48,74 @@ class AStar:
         Returns:
             (N, 2) 路径点世界坐标数组，不可达返回空数组
         """
-        start_grid = self.grid_map.world_to_grid(start_world[0], start_world[1])
-        goal_grid = self.grid_map.world_to_grid(goal_world[0], goal_world[1])
+        gm = self.grid_map
+        width = gm.width
+        height = gm.height
+        # 内层循环要随机访问几万次栅格：转成 list-of-list 后索引是纯 Python int，
+        # 比 numpy 标量取值快约 5 倍（算法、判据、扩张顺序均未改动）
+        grid = gm.grid.tolist()
+
+        start_grid = gm.world_to_grid(start_world[0], start_world[1])
+        goal_grid = gm.world_to_grid(goal_world[0], goal_world[1])
 
         # 检查起点和终点是否有效
-        if self.grid_map.is_occupied(start_grid[0], start_grid[1]):
+        if grid[start_grid[1]][start_grid[0]] == 1:
             print("[A*] 起点被占用！")
             return np.array([])
-        if self.grid_map.is_occupied(goal_grid[0], goal_grid[1]):
+        if grid[goal_grid[1]][goal_grid[0]] == 1:
             print("[A*] 终点被占用！")
             return np.array([])
 
         # A* 主循环
+        gx, gy = goal_grid
+        hw = self.heuristic_weight
+        directions = self.directions
+        max_iterations = self.max_iterations
+        heappush = heapq.heappush
+        heappop = heapq.heappop
+
         open_list = []
-        start_node = _Node(start_grid, None, 0.0,
-                           self._heuristic(start_grid, goal_grid))
-        heapq.heappush(open_list, start_node)
+        heappush(open_list, _Node(start_grid, None, 0.0,
+                                  math.hypot(start_grid[0] - gx,
+                                             start_grid[1] - gy)))
 
         closed_set = set()
+        add_closed = closed_set.add
         g_costs = {start_grid: 0.0}
 
         iterations = 0
-        while open_list and iterations < self.max_iterations:
+        while open_list and iterations < max_iterations:
             iterations += 1
-            current = heapq.heappop(open_list)
+            current = heappop(open_list)
+            cur = current.grid
 
-            if current.grid == goal_grid:
+            if cur == goal_grid:
                 return self._reconstruct_path(current)
 
-            closed_set.add(current.grid)
+            add_closed(cur)
+            cur_g = g_costs[cur]
+            cx, cy = cur
 
-            for dx, dy, cost in self.directions:
-                neighbor = (current.grid[0] + dx, current.grid[1] + dy)
+            for dx, dy, cost in directions:
+                nx = cx + dx
+                ny = cy + dy
 
                 # 检查栅格是否可通行
-                if not (0 <= neighbor[0] < self.grid_map.width and
-                        0 <= neighbor[1] < self.grid_map.height):
+                if nx < 0 or nx >= width or ny < 0 or ny >= height:
                     continue
-                if self.grid_map.is_occupied(neighbor[0], neighbor[1]):
+                if grid[ny][nx] == 1:
                     continue
+                neighbor = (nx, ny)
                 if neighbor in closed_set:
                     continue
 
-                tent_g = g_costs[current.grid] + cost
-                if neighbor not in g_costs or tent_g < g_costs[neighbor]:
+                tent_g = cur_g + cost
+                old_g = g_costs.get(neighbor)
+                if old_g is None or tent_g < old_g:
                     g_costs[neighbor] = tent_g
-                    f_cost = tent_g + self.heuristic_weight * \
-                             self._heuristic(neighbor, goal_grid)
-                    heapq.heappush(open_list, _Node(neighbor, current,
-                                                     tent_g, f_cost))
+                    f_cost = tent_g + hw * math.hypot(nx - gx, ny - gy)
+                    heappush(open_list, _Node(neighbor, current,
+                                              tent_g, f_cost))
 
         print(f"[A*] 未找到路径，迭代次数: {iterations}")
         return np.array([])
@@ -119,6 +140,8 @@ class AStar:
 
 class _Node:
     """A* 搜索节点（内部使用）"""
+
+    __slots__ = ("grid", "parent", "g_cost", "f_cost")
 
     def __init__(self, grid, parent, g_cost, f_cost):
         self.grid = grid

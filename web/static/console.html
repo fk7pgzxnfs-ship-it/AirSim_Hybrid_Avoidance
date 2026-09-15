@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AirSim v3.1 控制台</title>
+<title>AirSim v5.6 控制台</title>
 <style>
   :root {
     --bg: #f3f3f3; --card: #ffffff; --text: #1b1b1b; --sub: #6e6e6e;
@@ -128,6 +128,7 @@
   <span class="spacer"></span>
   <span class="pill" title=""><span id="ueDot" class="dot"></span>UE <span id="ueText">检测中</span></span>
   <button class="btn-mini" id="btnUeAuto" type="button">自动连接 UE</button>
+  <button class="btn-mini" id="btnReloadEditor" type="button" title="重新加载场景编辑器页面（编辑器卡住 / 画布空白时用；未保存的左栏改动会丢）">刷新编辑器</button>
   <span class="pill">场景 <span id="sceneText">-</span></span>
   <span class="pill" id="taskPill" style="display:none">运行中: <span id="taskLabel"></span></span>
 </div>
@@ -136,48 +137,57 @@
 <div class="wrap">
   <div>
     <div class="card">
-      <h2>场景</h2>
-      <select id="sceneSel"></select>
-      <button class="btn" id="btnRefresh">刷新列表 <span class="hint">&#8635;</span></button>
-      <button class="btn" id="btnEditor">场景编辑器 <span class="hint">窗口内标签页</span></button>
+      <h2>怎么用</h2>
+      <div class="hint small">① 选场景 &#8594; ② 连 UE（自动开虚幻引擎并等 8990 端口）&#8594; ③ 起飞。<br>
+        手边没有 UE 也能用最下面那张卡的「平滑度评估」（纯 2D 仿真，不碰虚幻引擎）。</div>
     </div>
     <div class="card">
-      <h2>飞行（需 UE）</h2>
-      <button class="btn primary" id="btnSingle">单次避障飞行</button>
+      <h2><span style="display:inline-block;width:18px;height:18px;line-height:18px;border-radius:50%;background:#2d6cdf;color:#fff;text-align:center;font-size:12px;margin-right:6px">1</span>选场景</h2>
+      <select id="sceneSel"></select>
+      <button class="btn" id="btnRefresh">刷新列表 <span class="hint">&#8635;</span></button>
+      <button class="btn" id="btnEditor">打开场景编辑器 <span class="hint">在窗口内切到编辑器标签页</span></button>
+    </div>
+    <div class="card">
+      <h2><span style="display:inline-block;width:18px;height:18px;line-height:18px;border-radius:50%;background:#2d6cdf;color:#fff;text-align:center;font-size:12px;margin-right:6px">2</span>连接 Unreal Engine</h2>
+      <div class="hint small" id="ueCardMsg">检测中&#8230;</div>
+      <button class="btn primary" id="btnUeAuto2">自动连接 UE <span class="hint">启动并等待端口 8990</span></button>
+      <button class="btn" id="btnCheck">只检查连接（不启动引擎）</button>
+      <details style="margin-top:8px">
+        <summary class="hint small" style="cursor:pointer">高级：引擎路径 / 地图 / 启动参数（一般不用改）</summary>
+        <label class="lbl">引擎路径 (UnrealEditor.exe)</label>
+        <input type="text" id="ueEngine" spellcheck="false" placeholder="D:\UE_5.7\Engine\Binaries\Win64\UnrealEditor.exe">
+        <label class="lbl">工程路径 (*.uproject)</label>
+        <input type="text" id="ueProject" spellcheck="false" placeholder="...\Blocks 5.7\Blocks.uproject">
+        <label class="lbl">地图</label>
+        <input type="text" id="ueMap" spellcheck="false" placeholder="GISMap">
+        <label class="lbl">附加启动参数（空格分隔）</label>
+        <input type="text" id="ueArgs" spellcheck="false" placeholder="-game -windowed -ResX=1280 -ResY=720">
+        <label class="lbl">最长等待连接（秒）</label>
+        <input type="number" id="ueWait" value="180" min="30" max="900" style="width:120px">
+        <button class="btn" id="btnUeSave">保存 UE 设置 <span class="hint">config/ue_launch.json</span></button>
+        <div class="hint small" id="ueCfgMsg"></div>
+      </details>
+    </div>
+    <div class="card">
+      <h2><span style="display:inline-block;width:18px;height:18px;line-height:18px;border-radius:50%;background:#2d6cdf;color:#fff;text-align:center;font-size:12px;margin-right:6px">3</span>让无人机飞（需 ② 已连接）</h2>
+      <button class="btn primary" id="btnSingle">单次避障飞行 <span class="hint">完整起降一次</span></button>
       <div class="row">
         <select id="flightMode">
-          <option value="flights" selected>连续飞行（自动校验）</option>
+          <option value="flights" selected>连续飞行（每局自动校验轨迹）</option>
           <option value="single">单次飞行</option>
         </select>
         <input type="number" id="flightN" value="3" min="1" max="20" title="次数">
       </div>
-      <button class="btn" id="btnFlights">开始 <span class="hint">FLIGHTS</span></button>
+      <button class="btn" id="btnFlights">开始 <span class="hint">按上面的次数连飞</span></button>
     </div>
     <div class="card">
-      <h2>训练与评估（无需 UE）</h2>
-      <button class="btn" id="btnEval">平滑度评估 <span class="hint">60 局</span></button>
-      <button class="btn" id="btnTrain">重新训练模型 <span class="hint">覆盖 ddpg_best.pth</span></button>
+      <h2>不用 UE 也能做</h2>
+      <button class="btn" id="btnEval">平滑度评估 <span class="hint">2D 仿真 60 局，看轨迹抖动指标</span></button>
+      <button class="btn" id="btnTrain">重新训练模型 <span class="hint">DDPG，覆盖 ddpg_best.pth</span></button>
     </div>
     <div class="card">
-      <h2>系统</h2>
+      <h2>运行控制</h2>
       <button class="btn" id="btnStop">停止当前任务</button>
-      <button class="btn" id="btnCheck">检查 UE 连接</button>
-      <button class="btn primary" id="btnUeAuto2">自动连接 UE <span class="hint">启动并等待端口 8990</span></button>
-    </div>
-    <div class="card">
-      <h2>UE 启动设置</h2>
-      <label class="lbl">引擎路径 (UnrealEditor.exe)</label>
-      <input type="text" id="ueEngine" spellcheck="false" placeholder="D:\UE_5.7\Engine\Binaries\Win64\UnrealEditor.exe">
-      <label class="lbl">工程路径 (*.uproject)</label>
-      <input type="text" id="ueProject" spellcheck="false" placeholder="...\Blocks 5.7\Blocks.uproject">
-      <label class="lbl">地图</label>
-      <input type="text" id="ueMap" spellcheck="false" placeholder="GISMap">
-      <label class="lbl">附加启动参数（空格分隔）</label>
-      <input type="text" id="ueArgs" spellcheck="false" placeholder="-game -windowed -ResX=1280 -ResY=720">
-      <label class="lbl">最长等待连接（秒）</label>
-      <input type="number" id="ueWait" value="180" min="30" max="900" style="width:120px">
-      <button class="btn" id="btnUeSave">保存 UE 设置 <span class="hint">config/ue_launch.json</span></button>
-      <div class="hint small" id="ueCfgMsg"></div>
     </div>
   </div>
   <div class="card" style="margin-bottom:0">
@@ -256,6 +266,20 @@ function renderUe(st) {
   btn.title = st.ue_error || "";
   $("ueDot").parentElement.title = st.ue_error || "";
   if (st.ue_error) $("btnUeAuto2").title = st.ue_error;
+  // ② 卡片里的状态说明：新用户不该只靠顶栏那个小圆点判断能不能起飞
+  const msg = $("ueCardMsg");
+  if (msg) {
+    if (st.ue) msg.textContent = "UE 已连接，8990 端口已就绪，可以去 ③ 起飞了。";
+    else if (ueLaunching) msg.textContent = "正在启动虚幻引擎并等待 8990 端口，通常 1~3 分钟，可以先看右边日志。";
+    else msg.textContent = "UE 未连接：点下面的按钮自动启动工程；已经手动开着 UE 就点「只检查连接」。" +
+                           (st.ue_error ? "（上次报错：" + st.ue_error + "）" : "");
+  }
+  const b2 = $("btnUeAuto2");
+  if (b2) {
+    b2.disabled = !!st.ue;
+    b2.innerHTML = st.ue ? "已连接 &#10003;" :
+      "自动连接 UE <span class=\"hint\">启动并等待端口 8990</span>";
+  }
 }
 async function ueStart() {
   if (ueLaunching) return;
@@ -285,6 +309,14 @@ async function loadUeCfg() {
   } catch (e) { /* ignore */ }
 }
 $("btnUeAuto").onclick = ueStart;
+// 编辑器卡住 / 画布空白时的兜底：整页重载 iframe（等价于按 F5）
+function reloadEditor() {
+  const fr = $("editorFrame");
+  if (!fr) { ensureEditor(); return; }
+  try { fr.contentWindow.location.reload(); }
+  catch (e) { fr.src = "/"; }
+}
+$("btnReloadEditor").onclick = reloadEditor;
 $("btnUeAuto2").onclick = ueStart;
 $("btnUeSave").onclick = async () => {
   const extra = ($("ueArgs").value || "").trim();

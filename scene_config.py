@@ -42,17 +42,43 @@ GENERATED_DIR = os.path.join(PROJECT_ROOT, "config", "scenes", "generated")
 class Obstacle:
     """方形柱状障碍物（底面 w x h，高度 height，中心 (x, y)）"""
 
-    def __init__(self, name, x, y, w, h, height):
+    def __init__(self, name, x, y, w, h, height, base_z=0.0, kind=""):
         self.name = name or "Obstacle"
         self.x = float(x)
         self.y = float(y)
         self.w = float(w)
         self.h = float(h)
         self.height = float(height)
+        self.base_z = float(base_z)
+        self.kind = str(kind or ("floating" if self.base_z > 0.0 else "column"))
+
+    @property
+    def alt_range_m(self):
+        """vertical span in meters: [base_z, base_z + height]"""
+        return (self.base_z, self.base_z + self.height)
+
+    def blocks_altitude(self, alt_m, margin=2.0):
+        """whether the obstacle overlaps cruise altitude alt_m (+-margin)
+
+        威胁带 = 巡航高度 ± margin（默认 12m ± 2m = [10, 14]m）。
+        只有垂直区间 [base_z, base_z+height] 与该带相交的障碍才会被
+        计入避障威胁；完全低于或完全高于带的悬浮物（如
+        base_z=6 height=2 层“悬在下方”、base_z=15 height=2 “悬在上方”）
+        不会在该高度平面上挡路，不进 A* / 避障。
+        """
+        lo, hi = self.alt_range_m
+        return lo <= alt_m + margin and hi >= alt_m - margin
 
     @property
     def physical_radius(self):
-        """物理/LiDAR 等效半径（内切圆）"""
+        """物理/LiDAR 等效半径（内切圆）
+
+        落地柱/悬浮物沿用 v1 的 max/2（覆盖整根柱身）；
+        building（城市导入的盒式建筑）按短边近似 +0.5m，
+        使街道净空不被大盒的外接圆过度占用（角落精度受限，已文档说明）。
+        """
+        if self.kind == "building":
+            return min(self.w, self.h) / 2.0 + 0.5
         return max(self.w, self.h) / 2.0
 
     @property
@@ -69,7 +95,8 @@ class Obstacle:
 
     def to_dict(self):
         return {"name": self.name, "x": self.x, "y": self.y,
-                "w": self.w, "h": self.h, "height": self.height}
+                "w": self.w, "h": self.h, "height": self.height,
+                "base_z": self.base_z, "kind": self.kind}
 
     @classmethod
     def from_dict(cls, d):
@@ -85,7 +112,9 @@ class Obstacle:
             w = float(d.pop("w", 2.0))
             h = float(d.pop("h", 2.0))
             height = float(d.pop("height", 14.0))
-        return cls(name, x, y, w, h, height)
+        base_z = float(d.pop("base_z", 0.0))
+        kind = str(d.pop("kind", ""))
+        return cls(name, x, y, w, h, height, base_z=base_z, kind=kind)
 
     def __repr__(self):
         return "Obstacle(%s, %.1f, %.1f, %.1fx%.1fx%.1f)" % (
@@ -97,7 +126,8 @@ class SceneConfig:
 
     def __init__(self, scene_id, x_min, x_max, y_min, y_max, resolution,
                  start, goal, obstacles=None, takeoff_height=-12.0,
-                 route_mode="line", source_path=""):
+                 route_mode="line", source_path="", altitude_margin=2.0,
+                 use_drl=True, geo=None, gis=None, home_geo_point=None):
         self.id = scene_id
         self.x_min = float(x_min)
         self.x_max = float(x_max)
@@ -108,6 +138,11 @@ class SceneConfig:
         self.goal = np.array([float(goal[0]), float(goal[1])])
         self.takeoff_height = float(takeoff_height)
         self.route_mode = route_mode if route_mode in ("line", "astar") else "line"
+        self.altitude_margin = float(altitude_margin)
+        self.use_drl = bool(use_drl)
+        self.geo = dict(geo) if geo else None
+        self.gis = dict(gis) if gis else None
+        self.home_geo_point = dict(home_geo_point) if home_geo_point else None
         self.obstacles = list(obstacles or [])
         self.source_path = source_path
 
@@ -131,6 +166,11 @@ class SceneConfig:
             takeoff_height=d.get("takeoff_height", -12.0),
             route_mode=route.get("mode", "line"),
             source_path=source_path,
+            altitude_margin=d.get("altitude_margin", 2.0),
+            use_drl=bool(d.get("use_drl", True)),
+            geo=d.get("geo") or None,
+            gis=d.get("gis") or None,
+            home_geo_point=(d.get("home_geo_point") or d.get("home-geo-point") or None),
         )
 
     @classmethod
@@ -165,14 +205,31 @@ class SceneConfig:
         return (self.x_min, self.x_max, self.y_min, self.y_max)
 
     @property
+    def flight_altitude_m(self):
+        """巡航高度（米，地面 0m 向上为正；NED z 为负时取反）"""
+        return float(-self.takeoff_height if self.takeoff_height < 0 else self.takeoff_height)
+
+    @property
+    def is_gis(self):
+        """v5.0: True when this scene renders ProjectAirSim CustomGIS tiles."""
+        return bool(self.gis) and str(self.gis.get("scene_type", "")) == "CustomGIS"
+
+    @property
+    def blocking_obstacles(self):
+        """与巡航高度层相交的障碍（平面避障威胁）"""
+        m = self.altitude_margin
+        return [o for o in self.obstacles
+                if o.blocks_altitude(self.flight_altitude_m, m)]
+
+    @property
     def obstacles_plan(self):
-        """规划障碍 [[x, y, 膨胀半径], ...]"""
-        return [[o.x, o.y, o.plan_radius] for o in self.obstacles]
+        """规划障碍 [[x, y, 膨胀半径], ...]（只含巡航高度层威胁）"""
+        return [[o.x, o.y, o.plan_radius] for o in self.blocking_obstacles]
 
     @property
     def obstacles_physical(self):
-        """物理/LiDAR 障碍 [[x, y, 半径], ...]"""
-        return [[o.x, o.y, o.physical_radius] for o in self.obstacles]
+        """物理/LiDAR 障碍 [[x, y, 半径], ...]（只含巡航高度层威胁）"""
+        return [[o.x, o.y, o.physical_radius] for o in self.blocking_obstacles]
 
     def in_bounds(self, x, y):
         return self.x_min <= x <= self.x_max and self.y_min <= y <= self.y_max
@@ -198,12 +255,22 @@ class SceneConfig:
             seen.add(o.name)
             if not self.in_bounds(o.x, o.y):
                 errs.append("障碍物 %s (%s) 超出地图范围" % (o.name, (o.x, o.y)))
+            if o.base_z < 0.0:
+                errs.append("障碍物 %s 的 base_z 不能小于 0" % o.name)
+            if o.height <= 0.0:
+                errs.append("障碍物 %s 的高度必须大于 0" % o.name)
             for o2 in self.obstacles:
                 if o2 is o:
                     continue
                 dx = abs(o.x - o2.x)
                 dy = abs(o.y - o2.y)
-                if dx < (o.w + o2.w) / 2.0 - 1e-6 and dy < (o.h + o2.h) / 2.0 - 1e-6:
+                ox = (o.w + o2.w) / 2.0 - dx
+                oy = (o.h + o2.h) / 2.0 - dy
+                if ox > 1e-6 and oy > 1e-6:
+                    # v4: 城市导入的盒式建筑是足印近似，相邻楼常贴墙/互叠；
+                    # 静态体之间互不影响飞行，跳过建筑之间的重叠报错（其余仍严格）
+                    if o.kind == "building" and o2.kind == "building":
+                        continue
                     errs.append("障碍物 %s 与 %s 重叠" % (o.name, o2.name))
         # 起点终点不得压在障碍物上（按物理半径判定）
         for o in self.obstacles:
@@ -251,6 +318,33 @@ class SceneConfig:
         return float(np.linalg.norm(np.array(pos[:2]) - proj))
 
     # ---------- UE 场景生成 ----------
+    def _to_ue_gis_dict(self, out):
+        """v5.0: CustomGIS scene -> UE LoadScene config (terrain+buildings come from 3D tiles)."""
+        g = self.gis or {}
+        out["scene-type"] = "CustomGIS"
+        out["tiles-dir"] = str(g.get("tiles_dir", "")).replace("\\", "/")
+        out["tiles-lod-min"] = int(g.get("tiles_lod_min", 13))
+        out["tiles-lod-max"] = int(g.get("tiles_lod_max", 19))
+        if g.get("tiles_altitude_offset"):
+            out["tiles-altitude-offset"] = float(g["tiles_altitude_offset"])
+        if g.get("horizon_tiles_dir"):
+            out["horizon-tiles-dir"] = str(g["horizon_tiles_dir"]).replace("\\", "/")
+        if self.home_geo_point:
+            out["home-geo-point"] = {
+                "latitude": float(self.home_geo_point.get("latitude", 0.0)),
+                "longitude": float(self.home_geo_point.get("longitude", 0.0)),
+                "altitude": float(self.home_geo_point.get("altitude", 0.0)),
+            }
+        # GIS: no synthetic ground plate / box obstacles, the tiles are the real world
+        out["environment-actors"] = []
+        for actor in out.get("actors", []):
+            if actor.get("type") == "robot":
+                actor["origin"]["xyz"] = "%.3f %.3f %s" % (
+                    self.start[0], self.start[1],
+                    actor["origin"]["xyz"].split()[2])
+                break
+        return out
+
     def to_ue_dict(self, template_path=None):
         """生成 UE LoadScene 可用的场景字典（地面板 + 障碍物 + 机器人）"""
         import commentjson
@@ -259,6 +353,9 @@ class SceneConfig:
             tpl = commentjson.load(f)
         out = copy.deepcopy(tpl)
         out["id"] = self.id
+
+        if self.is_gis:
+            return self._to_ue_gis_dict(out)
 
         # 机器人起点（出生点 z 沿用模板，飞行时由 reset_position 重新定位）
         for actor in out.get("actors", []):
@@ -292,7 +389,7 @@ class SceneConfig:
             for o in self.obstacles:
                 obs = copy.deepcopy(tpl_obs)
                 obs["name"] = o.name
-                obs["origin"]["xyz"] = "%.3f %.3f %.3f" % (o.x, o.y, -o.height / 2.0)
+                obs["origin"]["xyz"] = "%.3f %.3f %.3f" % (o.x, o.y, -(o.base_z + o.height / 2.0))
                 scale = "%.3f %.3f %.3f" % (o.w, o.h, o.height)
                 for link in obs.get("env-actor-config", {}).get("links", []):
                     # 物理惯性盒
@@ -329,7 +426,7 @@ class SceneConfig:
 
     # ---------- 序列化 ----------
     def to_dict(self):
-        return {
+        d = {
             'id': self.id,
             'map': {
                 'x_min': float(self.x_min), 'x_max': float(self.x_max),
@@ -340,23 +437,20 @@ class SceneConfig:
             'goal': [float(self.goal[0]), float(self.goal[1])],
             'takeoff_height': float(self.takeoff_height),
             'route': {'mode': self.route_mode},
+            'use_drl': bool(self.use_drl),
+            'altitude_margin': float(self.altitude_margin),
             'obstacles': [o.to_dict() for o in self.obstacles],
         }
+        if self.geo:
+            d['geo'] = self.geo
+        if self.gis:
+            d['gis'] = self.gis
+        if self.home_geo_point:
+            d['home_geo_point'] = self.home_geo_point
+        return d
 
-
-        d = {
-            "id": self.id,
-            "map": {
-                "x_min": float(self.x_min), "x_max": float(self.x_max),
-                "y_min": float(self.y_min), "y_max": float(self.y_max),
-                "resolution": float(self.resolution),
-            },
-            "start": [float(self.start[0]), float(self.start[1])],
-            "goal": [float(self.goal[0]), float(self.goal[1])],
-            "takeoff_height": float(self.takeoff_height),
-            "route": {"mode": self.route_mode},
-            "obstacles": [o.to_dict() for o in self.obstacles],
-        }
+    def to_yaml(self):
+        d = self.to_dict()
         return yaml.safe_dump(d, allow_unicode=True, sort_keys=False,
                               default_flow_style=False)
 
@@ -397,13 +491,22 @@ class SceneConfig:
             ax.axvline(gx, color="gray", lw=0.5, alpha=0.5)
         for gy in np.arange(self.y_min, self.y_max, 5.0):
             ax.axhline(gy, color="gray", lw=0.5, alpha=0.5)
-        # 障碍物
+        # 障碍物（悬浮障碍用蓝色/虚线区分，楼栋建筑不逐栋标注名称）
         for o in self.obstacles:
+            floating = o.base_z > 0.0
+            face = "tab:blue" if floating else "tab:red"
+            edge = "navy" if floating else "darkred"
             ax.add_patch(Rectangle((o.x - o.w / 2, o.y - o.h / 2), o.w, o.h,
-                                   facecolor="tab:red", edgecolor="darkred",
-                                   alpha=0.85, label="障碍物" if o is self.obstacles[0] else None))
-            ax.text(o.x, o.y, o.name, ha="center", va="center",
-                    color="white", fontsize=9)
+                                   facecolor=face, edgecolor=edge, alpha=0.8,
+                                   ls="--" if floating else "-",
+                                   label="悬浮障碍" if (floating and o is self.obstacles[0]) else
+                                   ("障碍物" if o is self.obstacles[0] else None)))
+            if o.kind != "building" or len(self.obstacles) <= 60:
+                label = o.name
+                if floating:
+                    label += "\n悬浮 %d~%dm" % (round(o.base_z), round(o.base_z + o.height))
+                ax.text(o.x, o.y, label, ha="center", va="center",
+                        color="white", fontsize=9)
         # 直线路线
         line = self.line_points(spacing=1.0)
         ax.plot(line[:, 0], line[:, 1], "--", color="tab:blue", lw=1.5,

@@ -1,0 +1,89 @@
+id: Gis_gis_31_23970_121_49000_ShanghaiBund
+map:
+  x_min: -250.0
+  x_max: 250.0
+  y_min: 182.0
+  y_max: 322.0
+  resolution: 1.0
+start:
+- -242.0
+- 318.0
+goal:
+- 242.0
+- 318.0
+takeoff_height: -12.0
+route:
+  mode: astar
+use_drl: false
+altitude_margin: 2.0
+obstacles:
+- name: B0002
+  x: 199.04154977831098
+  y: 232.81287705188123
+  w: 146.3762495571011
+  h: 164.25103658360578
+  height: 19.200000000000003
+  base_z: 0.0
+  kind: building
+- name: B0012
+  x: -46.50980268126747
+  y: 177.61193582137005
+  w: 46.56654145574691
+  h: 46.90861338526827
+  height: 64.0
+  base_z: 0.0
+  kind: building
+- name: B0014
+  x: -68.84379911421817
+  y: 243.59293123535812
+  w: 25.224187262658816
+  h: 37.591631308077865
+  height: 38.400000000000006
+  base_z: 0.0
+  kind: building
+- name: B0017
+  x: -85.39248520896679
+  y: 202.95317739777045
+  w: 34.21593366071082
+  h: 44.41270346368026
+  height: 38.400000000000006
+  base_z: 0.0
+  kind: building
+- name: B0114
+  x: 59.817487896199395
+  y: 193.7621382326642
+  w: 104.3764988105608
+  h: 96.207768405846
+  height: 30.0
+  base_z: 0.0
+  kind: building
+- name: B0143
+  x: -222.26521339795468
+  y: 208.47653418146677
+  w: 11.397832608636179
+  h: 12.184533274666762
+  height: 12.0
+  base_z: 0.0
+  kind: building
+geo:
+  source: gis-tiles
+  center:
+  - 31.2397
+  - 121.49
+  extent_m: 1000.0
+  home_alt_m: -0.52
+  gis_site: gis_31_23970_121_49000_ShanghaiBund
+  gis_alt_m: -0.52
+  provider: sat
+gis:
+  scene_type: CustomGIS
+  tiles_dir: C:/Users/13631/Documents/GitHub/AirSim_Hybrid_Avoidance/AirSim Hybrid
+    Avoidance_v1/config/gis_tiles/gis_31_23970_121_49000_ShanghaiBund
+  tiles_lod_min: 16
+  tiles_lod_max: 17
+  site_id: gis_31_23970_121_49000_ShanghaiBund
+  provider: sat
+home_geo_point:
+  latitude: 31.2397
+  longitude: 121.49
+  altitude: -0.5166033583317171

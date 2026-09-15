@@ -1,0 +1,41 @@
+id: Gis_gis_40_75270_-73_97720
+map:
+  x_min: -464.0
+  x_max: -304.0
+  y_min: -300.0
+  y_max: 300.0
+  resolution: 1.0
+start:
+- -384.0
+- -292.0
+goal:
+- -384.0
+- 292.0
+takeoff_height: -12.0
+route:
+  mode: astar
+use_drl: false
+altitude_margin: 2.0
+obstacles: []
+geo:
+  source: gis-tiles
+  center:
+  - 40.7527
+  - -73.9772
+  extent_m: 1200.0
+  home_alt_m: 16.64
+  gis_site: gis_40_75270_-73_97720
+  gis_alt_m: 16.64
+  provider: sat
+gis:
+  scene_type: CustomGIS
+  tiles_dir: C:/Users/13631/Documents/GitHub/AirSim_Hybrid_Avoidance/AirSim Hybrid
+    Avoidance_v1/config/gis_tiles/gis_40_75270_-73_97720
+  tiles_lod_min: 15
+  tiles_lod_max: 17
+  site_id: gis_40_75270_-73_97720
+  provider: sat
+home_geo_point:
+  latitude: 40.7527
+  longitude: -73.9772
+  altitude: 16.636756946191937

@@ -2,6 +2,171 @@
 
 版本记录遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 风格。日期依据 `docs/handover.md` 与文件时间戳（确定事实）。
 
+## [v5.6] - 2026-09-15
+### 里程碑
+修掉「换个点位点刷新预览、等 45 秒后建筑一栋都不出」的根因（Overpass 镜像分级把本机唯一可用的镜像挡在 deadline 之外）；控制台左栏按实际操作顺序重排，UE 启动参数收进折叠区。
+
+### 修复
+- **Overpass 分级把可用镜像挡在门外（本次"刷不出来"的根因）**：`fetch_buildings()` 原实现把镜像分两级**串行**跑（一级 `overpass.openstreetmap.fr` + `maps.mail.ru`；二级 `overpass-api.de` + kumi + private.coffee），而 `deadline_s` 由一级独占。一级整体超时后，二级只剩不到 1 秒就被 `if left <= 1.0: break` 跳过，直接抛 `Overpass 全部镜像失败/超时(45s)`。**实测 2026-09-15：`overpass-api.de` 单独查询曼谷 1.49 秒就返回有效数据，却因为排在二级而永远没机会跑。** 现改为**单池并行 hedge**：主池 + 慢镜像一次性全部发出，谁先回有效结果就用谁（`_overpass_race` 本来就是这个语义）；再加**第二轮重复同一池**——公共镜像的慢多半是"这一刻正好在排队"。单次尝试上限 30 秒，给其它镜像留出顶上的时间。
+- 删除本机 DNS 已解析不了 / 证书校验失败的镜像，避免每轮白等：`overpass-api.openstreetmap.de`、`overpass.osm24.eu`、`api.openstreetmap.fr/oapi`、`overpass.nchc.org.tw`、`overpass.zoom.earth`、`overpass.osm.rambler.ru`、`overpass.openstreetmap.ru`、`overpass.osm.jp`。
+- Overpass 冷却期 600 秒 → 180 秒（`OVERPASS_COOLDOWN_S` 默认值）。
+- 前端错误文案人话化：`RuntimeError: Overpass 全部镜像失败/超时(45s): ...`、`...冷却中（还剩 175 秒）` 这类 Python 异常原文不再直接贴给用户；新增 `humanGisErr()` 翻成「OSM 建筑服务器（Overpass）在 N 秒内没有返回有效数据」「本轮全部超时，程序正在冷却 N 秒；点「重试建筑数据」可立刻再试」等。
+- 预览等待期加倒计时：新增 `peekEta()`，只在「等 OSM 建筑」这一段显示「最长再等约 N 秒；不想等就到 ② 勾「跳过在线建筑轮廓」」。其余步骤都是秒级，不打扰。
+- 预览交互式取建筑的预算 45 秒 → 30 秒（前端 `peekBody()` 显式传 `buildings_deadline_s: 30`）。
+- 「重试」按钮此前不清后端冷却，点了会立刻再失败一次，看起来像按钮坏了。新增 `POST /api/gis/overpass/retry`（清 `_OVP` 冷却），画布中央「重试」现在先清冷却再重刷。
+
+### 变更
+- `web/static/console.html` 左栏按操作顺序重排为：**怎么用（① 选场景 → ② 连 UE → ③ 起飞）/ 1 选场景 / 2 连接 Unreal Engine / 3 让无人机飞 / 不用 UE 也能做 / 运行控制**。原先把「场景 / 飞行（需 UE）/ 训练与评估（无需 UE）/ 系统 / UE 启动设置」五张卡平铺并列，其中「系统」里混着「停止当前任务」和「自动连接 UE」两个无关动作，新用户看不出先点哪个。
+- 「UE 启动设置」（引擎路径 / 工程 / 地图 / 附加参数 / 最长等待秒数）收进 `<details>` 折叠，默认收起。
+- ② 卡片新增实时状态行 `#ueCardMsg`：已连接 → 「8990 端口已就绪，可以去 ③ 起飞了」；启动中 → 「通常 1~3 分钟，可以先看右边日志」；未连接 → 「点下面的按钮自动启动工程；已经手动开着 UE 就点「只检查连接」」（附带上次报错）。`自动连接 UE` 按钮在已连接时置灰并显示「已连接 ✓」。
+
+### 验证（确定事实，本轮实测）
+- **修复前**（本机 2026-09-15，上一轮复现）：曼谷 13.7563/100.5018 → 0→48 秒卡在「等待 Overpass 建筑数据」，最终 `Overpass 全部镜像失败/超时(45s): 无响应`，结果只有影像 + 地形、0 栋建筑。
+- **修复后** `fetch_buildings()`：曼谷 21.9s → **2966 栋**；柏林 52.52/13.405 17.4s → 527 栋；开罗 30.0444/31.2357 4.3s → 515 栋。
+- **修复后端到端** `POST /api/gis/peek`（async + 轮询 `/api/gis/peek/status`，利马 -12.0464/-77.0428，全新未缓存）：19.5s 完成，`footprint_count=1463`、`buildings_ok=true`、`buildings_error` 为空。阶段耗时：DEM 采样约 8s、Overpass 约 3s、走廊 + A* + 渲染约 6s。
+- 镜像可用性实测（本机可达的只有这几个）：`overpass-api.de` 1.49s / `overpass.openstreetmap.fr` 3.87s / `maps.mail.ru` 2.10s / `overpass.osm.ch` 1.74s（**区域限定，已排除，不能加**）；`overpass.kumi.systems`、`overpass.private.coffee` 20 秒无响应。
+- 影像 / 地形源正常：ArcGIS World_Imagery 1.77s（10523 B）、AWS terrarium DEM 4.37s（104729 B）。
+- 页面实测（Edge headless + CDP）：`/console` 渲染「怎么用 / 1 选场景 / 2 连接 Unreal Engine / 3 让无人机飞 / 不用 UE 也能做 / 运行控制 / 日志」7 张卡，`ueCardMsg` 正确显示「UE 已连接，8990 端口已就绪」，场景下拉 16 项，**无 JS 错误**（仅 favicon.ico 404）。`/`（场景编辑器）无 JS 错误，`humanGisErr` / `peekEta` / `retryGisPeek` 均已定义，`peekBody().buildings_deadline_s === 30`。
+- 控制台内嵌编辑器 iframe 复核：切到「场景编辑器」标签页后 iframe 自动加载 `gis_-22_95190_-43_21050_RioCorcovado.yaml`（5 秒内 `readyState=complete`、`sceneName` 正确），**上一轮交接记录的"iframe 内不自动加载场景"本轮未能复现**。
+
+### 已知限制
+- Overpass 取建筑仍可能要 20 秒上下（取决于此刻哪个公共镜像空闲），这是上游排队时间，本地消不掉；预览里的 DEM 采样约 8 秒也还有优化空间。
+- 「全球真实建筑」目前完全依赖 OSM / Overpass 这一条链路，本机可达的公共镜像只有 3 个；镜像全挂时只能降级成纯地形预览。
+- 本文件缺少 v5.2 ~ v5.5 的条目（确定事实：`git`/文件里没有对应记录），本次只补 v5.6。
+
+## [v5.1] - 2026-09-11
+### 里程碑
+修复「左侧改参数、右侧画布不变」；新增**实时预览**——左栏经纬度 / 航程 / 走廊 / 贴图源一改，右侧画布约 1 秒内换成该选区的**真实卫星影像 + 真实建筑轮廓 + 将要生成的走廊/起终点/障碍**，不必等到 3D 瓦片生成完。同时修正底图朝向。
+
+### 新增
+- `gis_tiles.py`：`peek_paths()` / `peek_plan()` / `peek_prune()`。`peek_plan` 复用与 `build_site` 同一套 `dem_sampler` / `fetch_buildings` / `build_planner_scene` / `render_topdown_image`，只算不写 3D 瓦片；结果缓存到 `config/gis_tiles/_peek/<16位md5>/`（`_topdown.png` + `_plan.json` + `_footprints.json`）。
+- `web/gis_api.py`：`POST /api/gis/peek`（同步返回预览 JSON）、`GET /api/gis/peek.png?key=`（返回预览影像，`Cache-Control: no-store`）。
+- `web/static/index.html`：新增预览态 `peekView`；`mapRect()` / `worldToScreen` / `screenToWorld` 在预览态按预览矩形缩放；`draw()` 的底图与建筑轮廓取自预览数据；画布左下角蓝色信息条显示「预览（未生成）: lat,lon / 走廊 / 障碍 / 建筑轮廓 / A* 可达」。左栏改动 → `markGisDirty()` → `schedulePeek(700ms)` 防抖 → 预览。新增按钮「刷新预览」（强制重算）。
+- 画布编辑守卫：预览态下拖拽 / 双击不生效，提示先点「生成真实场景」。
+
+### 变更
+- 「用该点导入」（v4.1 的盒式近似路径）改名「生成真实场景（该点）」，改走 v5.0 GIS 3D 路径；旧 2D 盒式入口保留为「盒式导入」/「在线刷新」。
+- 新增「真实场景」按钮：按预置城市下拉一键生成真实地形 + 真实建筑。
+- 「重绘底图」语义澄清：只按**当前已生成站点**重画底图，不会按左栏新经纬度重算。
+
+### 修复
+- 底图 / 叠加层朝向：`draw()` 中影像用 `ctx.transform(0,-RH/iw,-RW/ih,0,x1,y1)` 铺满地图矩形，与 NED→屏幕映射（`screenX=x1-RW*v/ih`、`screenY=y1-RH*u/iw`）一致；修复前左右 / 上下反了。
+- **航线方向 / 长度（GIS 场景，v5.0 遗留）**：`worldgen.choose_start_goal()` 原先只会沿 x 取起终点。GIS 场景 x=北、y=东，`auto_layout` 的 `orient="ew"` 表示走廊沿 y，于是航线被横着放在走廊宽度上——地图 160x600m 时实际航线只有 **144m**（应为 584m）。现新增 `axis` 参数（`"x"` 沿 x / `"y"` 沿 y），`build_planner_scene` 按 orient 传入；参数默认 `"x"`，v3/v4 行为不变。
+- **空走廊 / 起终点跑出地图（GIS 场景，v5.0 遗留）**：`auto_layout` 原先只按「走廊内建筑数最多」取第一条候选，密集城区会选到没有任何自由车道的走廊 → `choose_start_goal` 返回 None → 触发回退分支把该走廊建筑**全部丢弃**（实测东京新宿 extent=800 得到 0 个障碍），且回退起终点被写死为 `y=0`，在南北向带偏移的走廊里落到地图矩形外。现改为按序尝试最多 24 条候选走廊、取第一条能真正选出起终点的；回退起终点改为取走廊中心线。
+- `worldgen._a_star_ok()` 静音 `AStar.plan` 失败时的 `print`（可达性探测属内部行为；候选走廊重试会放大该噪声）。
+
+### 验证（确定事实，本轮实测）
+- `peek_plan(48.8584,2.2945,1200,600,160)` 首次 24.7s（障碍 128 / 建筑轮廓 997 / A* 可达，key `d3250ad8483aef2e`）；`peek_plan(39.9163,116.3972,...)` 首次 38.1s（障碍 257 / 轮廓 1501）。同参数第二次 0.023s 命中磁盘缓存；只把 `route_len_m` 改 900 时 2.0s（OSM/DEM 已缓存），`map.x_min/x_max` 变为 ±450。
+- HTTP：`POST /api/gis/peek` → `ok=true`；`GET /api/gis/peek.png?key=d3250ad8483aef2e` → 200 image/png 275453 字节。
+- 前端探针（Edge headless 加载真实页面，iframe 内改输入框）：把 `geoLat/geoLon` 改为 48.8584/2.2945 后画布哈希 294046 → 635674；再把 `gisRouteLen` 改成 900 → 69003；状态栏显示「预览就绪 48.8584, 2.2945」，gisMsg 显示「128 个障碍 / 997 栋真实建筑轮廓 / 走廊 600m x 160m / A* 可达（缓存）」→「120 个障碍 / 993 栋 … 900m x 160m」。**左改右变成立**。
+- 朝向校验（同一 iframe，取画布像素 vs `_topdown.png` 像素，3x3 块均值、24x24 采样点）：当前实现 `sx=X1-RW*v, sy=Y1-RH*u` 中位差 **8.7**；水平镜像 65.8 / 垂直镜像 50.5 / 180° 57.0 / 不旋转 54.3 与 53.3。当前实现显著最优。
+- 全球任意点实机生成：`POST /api/gis/build {lat:-22.9519, lon:-43.2105, extent_m:900, route_len_m:600, label:"RioCorcovado"}` → `gis_-22_95190_-43_21050_RioCorcovado`，57 瓦片 / 22.8MB / 32.4s；`home_alt_m=528.57`（DEM 实测海拔，非 0）、建筑轮廓 13、走廊内障碍 13、A* 可达；单个地形瓦片 64x64=4096 顶点 / 15876 三角面。证明南半球 + 西经坐标可正常取 DEM 地形与 OSM 建筑。
+- 航线方向 / 空走廊修复后复测（`peek_plan` 直调，route_len_m=600）：巴黎埃菲尔 ext=1200 → orient=ns、start(-292,388)/goal(292,388)、航线 584m、起终点在地图内、障碍 128；东京新宿 ext=800 → orient=ew、start(450,-292)/goal(450,292)、航线 584m、障碍 **258**（修复前 0）；新宿 ext=1200 → 障碍 153；里约 ext=900 → 障碍 9；上海外滩 ext=900 → 障碍 41。**6/6 全部起终点落在地图矩形内、航线 584m（= 600 - 2×8m inset）**。
+- 已生成 GIS 场景的航线长度复核：修复前 `gis_-22_95190_-43_21050_RioCorcovado.yaml` 与 `gis_35_69050_139_69990_Shinjuku.yaml` 均为 `orient=ew`、地图 160x600m、航线 **144m**；两个站点已按修复后算法重建。
+
+### 未执行 / 限制（不确定信息）
+- 未在 UE 实机加载过 v5.0 / v5.1 生成的 GIS 场景（`CustomGIS` + `AGISRenderer` 消费路径只在代码层核对，未跑通）。
+- `_peek` 缓存每 key 约 630KB；已加 `peek_prune()`（保留最近 12 个 + 48h TTL，写入新预览时触发，命中时 touch），未做手动清理入口。
+- 城市场景默认 `use_drl=false`（DRL 模型泛化不足），避障由 A* + 势场负责。
+- 预览影像长边上限 1000px（`width=1000`），extent > 2000m 时清晰度不足。
+- 候选走廊重试最多 24 条，密集城区每次预览会多跑数十次 A* 探测（实测新宿 ext=1200 预览约 17s，其中 OSM/DEM 已缓存）；`_peek` 缓存键已加算法版本前缀 `v2`，算法再改需同步 +1 否则旧预览会与新建站点不一致。
+
+## [v5.0] - 2026-09-11
+### 里程碑
+全球任意地区**真实地形 + 真实建筑**三维场景：按经纬度生成 Project AirSim `CustomGIS` 场景所需的 quadkey glTF 瓦片（DEM 三角网地形 + OSM 建筑挤出 + 卫星影像贴图），UE 端由 `AGISRenderer` 加载。不再走 v4 的「盒式障碍近似」。
+
+### 数据来源（均可公开访问，选型说明）
+- 地形 DEM：AWS Terrain Tiles (terrarium) `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png`
+- 影像：Esri World Imagery / World_Topo_Map
+- 建筑：OpenStreetMap Overpass (`overpass-api.de` / `kumi.systems` / `private.coffee` 多镜像)
+- 地名：Photon（本机 Nominatim 不可达时自动备选）
+
+### 新增
+- `gis_tiles.py`：`dem_sampler` / `fetch_buildings` / `build_terrain` / `add_building` / `write_glb` / `build_site` / `build_planner_scene` / `render_topdown_image` / `build_preview` / `verify_site`，以及 CLI（`build` / `info` / `verify` / `preview` / `buildings`）。
+- 瓦片契约按 Project AirSim 源码实现：`<quadkey>.glb`、单 mesh 单 primitive、POSITION 为 ECEF 米、必须含 `TEXCOORD_0` 与 indices、image0 为 RGBA PNG。
+- `scene_config.py`：`SceneConfig.is_gis` / `gis` 字段 / `_to_ue_gis_dict()` / `dump_ue_scene()` 输出 `CustomGIS`。
+- `web/gis_api.py`：`POST /api/gis/build`（后台线程 + 进度）、`GET /api/gis/status`、`/api/gis/sites`、`/api/gis/topdown.png`、`/api/gis/footprints`、`/api/gis/load`、`/api/gis/preview`。
+- 编辑器新增 GIS 面板（范围 / 航程 / 走廊宽 / 贴图源 / 离线模式 / 站点列表 / 顶视预览）。
+
+### 验证（确定事实）
+- 已生成站点（`config/gis_tiles/`）：巴黎埃菲尔（9 瓦片 / 5.4MB / 164 建筑 / 67 障碍）、东京新宿（41 瓦片 / 16.2MB / 1415 建筑 / 382 障碍）、上海外滩（50 瓦片 / 16.7MB / 142 建筑）、里约科科瓦多（57 瓦片 / 22.8MB / 13 建筑 / 13 障碍，`home_alt_m=528.57`，v5.1 期生成）。
+- 全部 `.py` `py_compile` 通过。
+
+### 未执行 / 限制（不确定信息）
+- UE 实机未加载验证。
+- 生成耗时随建筑密度上升：新宿 900m 数分钟，郊区 / 山地 30s 级。
+
+## [v4.1] - 2026-09-10
+### 里程碑
+全球任意地区**地图选点导入**：在弹窗编辑器内嵌 OSM 世界地图，点任意位置/拖动标记选点，或按地名搜索候选后定位，再输入范围(m) 一键导入该点周边真实建筑。相当于把 v4.0 的“10 个预置城市”扩展到“全球任意坐标”。
+
+### 新增
+- **地理检索备选源** `worldgen.py`：`geocode_candidates()` 默认按 **Nominatim → Photon（Komoot，也是 OSM 数据、无需 key）**依次尝试，并记住上一次成功的源（`_GEO_HINT`），后续请求直接走可用源；`reverse_geocode()` 同样双源。
+- **API** `web/app.py`：`GET /api/geo/search?q=&limit=&provider=`（候选列表）、`GET /api/geo/reverse?lat=&lon=`（坐标反查地名）；`/api/geo/import` 新增 `label`（场景名称使用用户选中的地名）；`import_city()` 新增 `label` 参数。
+- **编辑器 UI** `web/static/index.html`：侧栏新增「v4.1 全球任意地区（地图选点）」——Leaflet + OSM 底图、点击选点/可拖拽标记/范围圆、纬经度手填、地名搜索候选下拉、反查地名、「用该点导入」。`startGeoImport(refresh, override)` 支持直接传坐标。
+- 底图不可用（离线/CDN 不可达）时自动降级：仍可手填纬经度或用地名搜索导入，不会白屏。
+
+### 变更
+- 版本标识 v4 → v4.1（窗口标题、页面 title、main.py 横幅）；预设城市面板保留，新增独立“地图选点”面板（两者共用同一导入/轮询/画布流程）。
+- 检索超时：地址搜索 8s、反查 8s（原 30s），避免不可达源长时间卡住界面。
+
+### 验证（确定事实，本轮实测）
+- 开发机当前访问 `nominatim.openstreetmap.org` 超时（URLError 10060），Photon 备选可达：`/api/geo/search?q=新宿` 返回 3 个候选（新宿、四谷、新宿駅）；`?q=Shanghai Bund` 首次 10.0s（Nominatim 超时后切 Photon），第二次 1.7s（命中源记忆）。
+- `/api/geo/reverse?lat=31.2397&lon=121.49` 首次 12.4s、第二次 1.5s，返回“外滩观光隧道, 外滩街道, 黄浦区, 上海市, 中国”。
+- **任意坐标导入成功**：`POST /api/geo/import {lat:31.2397, lon:121.49, extent_m:500, label:"Shanghai Bund"}` → `City_geo_31.23970_121.49000`，obs=3，route=astar，use_drl=false，自动缓存 `config/city_data/geo_*.json`（测试后已清理）。
+- 全量 .py `py_compile` 通过（69 个文件、0 失败）；exe 重打包（71MB）后实机冒烟：启动后 8787 就绪，`/` 200 且含 `mapPick` / `btnGeoPickImport` / Leaflet 与 v4.1 标识，`/console` 200 且标题为 `AirSim v4.1 控制台`，`/api/geo/presets` 返回 10 个预置（7 个有离线缓存），`/api/geo/search?q=Tokyo` 200（2.7s、3 条结果，走 Photon）。
+- 文档同步：`README.md`（顶部 v4.1 说明 + 快速开始改为 v4.1 + 版本历史表新增 v4.1 行）、`docs/USER_GUIDE.md`（标题与适用版本、新增「步骤 2.7 全球任意地区地图选点」、CLI 表新增 geo API 行、快捷命令 4.6、FAQ 14）。
+
+### 未执行 / 限制（不确定信息）
+- 地图底图使用 OSM 公共瓦片（需联网，仅交互式少量加载，遵循 OSM 瓦片使用政策）；未做离线底图/自建瓦片服务。
+- Nominatim 使用政策要求 ≤1 req/s；界面为按钮手动触发，未做服务端限流（本地单用户场景足够）。
+- 导入依赖 Overpass；若 Overpass 不可达，已缓存城市仍可离线导入，未缓存坐标则不可用。
+
+## [v4.0] - 2026-09-10
+### 里程碑
+弹窗编辑器新增三项 v4 能力：① **真实城市一键导入**（全球预置城市 + OSM 建筑数据，首次在线拉取后离线缓存复用）；② **悬浮障碍物**（障碍物增加离地高度 `base_z`，画布蓝色虚线显示）；③ **随机障碍物生成器**（可配悬浮比例/尺寸/高度/种子，自动 A* 可达性校验，不可达时回退新增障碍）。
+场景边界从 v2/v3 的“100×10 走廊”扩展到任意尺寸的“真实街区布局”；城市场景默认 `use_drl: false`，走 A* + 势场，不依赖已有模型，免重训即可飞行。
+
+### 数据来源选型（工程权衡，不走边理论）
+- 任务提及 NASA DEM。经评估：本项目避障语义是“固定巡航高度下的二维横向绕飞 + 盒式障碍物”，UE Blocks 无法加载真实地形高程网格；DEM 提供地表高程而非城市障碍，与 12~20m 巡航平面避障不直接匹配。
+- v4 改用 **OpenStreetMap（OSM）建筑足印**（Overpass API，10 个预置城市 + Nominatim 地名检索）：建筑足印转 AABB 盒（高度启发式：height/building:height/levels×3 → clamp 3~90m），直接可被 A*/碰撞/控制器/UE LoadScene 使用。首次成功拉取后缓存 `config/city_data/<id>.json`，后续可离线复用。
+- 实际城市大小地图使用等角直角投影近似（lonOffset×111320×cosφ、latOffset×110540），建筑简化为盒体近似；这些是设计上的近似，不是 OSM 数据本身的精度保证。
+
+### 新增
+- **数据层** `scene_config.py`：`Obstacle` 新增 `base_z`（离地高度）与 `kind`（column/floating/building），`alt_range_m`/`blocks_altitude`（威胁带 = 巡航高度± margin，默认 12m±2m = [10,14]m）；`SceneConfig` 新增 `altitude_margin`/`use_drl`/`geo`；`obstacles_plan/physical` 只返回与巡航高度相交的障碍；`to_ue_dict` 对悬浮物按“底部 base_z + 高度/2 → 反转 NED z”写入 UE actor；`to_preview` 悬浮=蓝色虚线、建筑=灰色不标注名称。
+- **场景生成器** `worldgen.py`（项目根新文件）：
+  - 预置城市 10 个（纽约/旧金山/东京/伦敦/巴黎/香港/新加坡/芝加哥/悉尼/柏林），路线默认 A* 自动选起始/目标点（中间车道优先，不达时清除直线走廊建筑）；
+  - `random_obstacles()`：在当前场景边界内采样落地柱/悬浮物（悬浮默认垂直区间落在巡航高度±1.5m 附近），不压起终点/不重叠，A* 不可达时自动回退新增障碍；
+  - CLI：`worldgen.py city --preset <id> [--extent m] [--refresh] [--offline]`、`worldgen.py random --scene <yaml> [--floating 0.3 ...]`、`worldgen.py fix --preset <id>`（离线去重+重选起终点）。
+- **城市离线缓存** `config/city_data/`（已隨仓库 7 个：manhattan_nyc/tokyo_shinjuku/london_city/hongkong_cwb/singapore_raffles/sanfran_financial/chicago_loop），对应场景 `config/scenes/city_*.yaml`；未缓存预设（巴黎/悉尼/柏林）需在线拉取。
+- **Flask API** `web/app.py`：`GET /api/geo/presets`（含 cached 标识）、`POST /api/geo/import`（后台线程）、`GET /api/geo/status`（进度轮询）、`POST /api/obstacles/random`（同步 A* 可达性校验）；场景保存改用 `SceneConfig.to_yaml`（修复此前 yaml 保存失败）。
+- **编辑器 UI** `web/static/index.html`：侧栏顶部新增「真实城市一键导入」与「随机生成障碍物」面板；障碍物列表增加离地高度输入（>0 自动为悬浮）；画布悬浮蓝色虚线/`[7,5]`；城市导入完成自动加载到画布可保存。
+- **控制器闭环** `hybrid_controller/supervisor.py`：遵守 `scene.use_drl`，为 false 时不加载 DRL Agent，全程 A*/势场路径。
+- **示例与图**：`config/scenes/scene_v4_floating_demo.yaml`（悬浮下方 8.5~11.5m + 悬浮上方 13.5~15.5m + 落地柱 0~14m）；`docs/scene_preview_*.png` 3 张（悬浮 demo / 伦敦 / 纽约）。
+
+### 变更
+- 全站版本标识升级 v4（窗口标题、页面 title、main.py 字段、文档）；悬浮语义在代码注释/UI tooltip 明确：“垂直区间触及巡航高度±2m 才会被计为避障威胁”。
+- 城市场景默认参数：`route.mode=astar`、`use_drl=false`、`takeoff_height=-20`（巡航 20m）、`resolution=1.0`；建筑相互重叠不再报错（足印近似原因）。
+- `worldgen.py`地名检索默认改为公共 Nominatim；Overpass 主服务不稳定时自动切换备用镜像（移除证书不匹配的节点）。
+
+### 修复
+- `Obstacle` 序列化补上 `base_z`/`kind`（此前进入 to_dict/from_dict 时丢失）；`SceneConfig.to_yaml` 独立实现（此前 dump 路径存在历史错位死代码，导致保存失败）。
+- `worldgen.random_obstacles`：当运算时发现不可达时改为从最后一个新增障碍开始回退，而不是直接报错（保留原场景布局）。
+- 起始/目标点落在障碍物上的校验改为按物理半径判断；城市导入场景随便打开/保存再不出错。
+- **exe 冻结模式下 `/` 与 `/console` 404（本轮打包冒烟发现）**：`index()`/`console_page()` 原用 `send_from_directory("static", ...)`，相对路径按 Flask `root_path` 解析；PyInstaller onefile 下 `root_path` 指向临时解包目录（无 web/static），导致弹窗白页。改为绝对路径 `ROOT/web/static`（exe 旁的数据目录）后正常。
+
+### 验证（确定事实）
+- 内置 10 个场景全部 `SceneConfig.validate() == []`（7 个城市 + scene_100x10/scene_test_120x16/scene_v4_floating_demo）；7 个城市场景 `_a_star_ok == True`，起点均在边界 x_min+8。城市障碍数（最新离线 fix 后）：manhattan 12 / tokyo 57 / london 34 / hongkong 16 / singapore 8 / sanfran 34 / chicago 40；场景范围约 380~580m，res=1.0。
+- 悬浮 demo：`scene_v4_floating_demo.yaml`生成并读回保存，3 个障碍均进避障列（`blocking_obstacles`），A* 可达。
+- Flask smoke（本地 python dev server）：`/api/geo/presets` 返回 10 个预设 + cached 标识；`POST /api/obstacles/random`（floating=0.5）返回 8 个障碍且可达；离线城市导入 manhattan 返回 City_manhattan_nyc；yaml 保存/读回保留 `base_z=10`。
+- 65 个 .py 全部 `py_compile` 通过；Flask 端到端 smoke（make_server + HTTP）：`/` `/console` `/api/geo/presets` 200，`POST /api/obstacles/random`（floating 0.5）返回 10 个障碍（4 悬浮），离线城市导入 manhattan 返回 City_manhattan_nyc（obs=12、route=astar、use_drl=false），yaml 保存读回保留 base_z。
+- exe 重打（71MB）后实际启动冒烟：程序启动后 8787 就绪；`/api/geo/presets` 返回 10 预设（7 缓存）；`/console` 200 且标题为 AirSim v4；`/` 200 且含 geoPreset 面板；提前终止后 8787 释放。
+
+### 未执行 / 限制（不确定信息）
+- 未做 DRL domain-randomization 重训（在任意起终点/障碍布局下训练泛化模型）；城市场景默认关 DRL 为故意设计，非遗漏。
+- 悬浮/城市场景的真实 UE 飞行未在本轮执行（避免占用重资源）；场景生成与 A*可达性已确认，但等价地上 UE 冲突/UActor 排布还需在真实 UE 中冒烟。
+- 巴黎/悉尼/柏林无离线缓存，缺网环境下无法导入；Overpass 在线稳定性、建筑高度启发式均为近似。
+
 ## [v3.1] - 2026-09-09
 ### 里程碑
 场景编辑器集成进 Windows 原生弹窗（顶部「控制台 / 场景编辑器」标签页切换，窗口内直接拖拽编辑场景并保存）；弹窗新增「自动连接 UE」——一键启动 UE 进程并自动等待端口 8990，不再需要手动敲命令启动 UE。

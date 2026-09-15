@@ -1,0 +1,29 @@
+{
+ "zoom": 17,
+ "width": 392,
+ "height": 1400,
+ "m_per_px": 1.2755,
+ "provider": "sat",
+ "degraded": false,
+ "tile_range": [
+  109769,
+  53551,
+  109770,
+  53553
+ ],
+ "tiles": 6,
+ "site_id": "gis_31_23970_121_49000_ShanghaiBund",
+ "lat": 31.2397,
+ "lon": 121.49,
+ "home_alt_m": -0.5166033583317171,
+ "png": "_topdown.png",
+ "cached": false,
+ "map": {
+  "x_min": -250.0,
+  "x_max": 250.0,
+  "y_min": 182.0,
+  "y_max": 322.0
+ },
+ "extent_m": 1000.0,
+ "generated_at": "2026-09-11 12:54:18"
+}

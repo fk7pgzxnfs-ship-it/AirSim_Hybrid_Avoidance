@@ -1,0 +1,29 @@
+{
+ "zoom": 19,
+ "width": 1400,
+ "height": 373,
+ "m_per_px": 0.1143,
+ "provider": "sat",
+ "degraded": false,
+ "tile_range": [
+  199209,
+  296500,
+  199218,
+  296502
+ ],
+ "tiles": 30,
+ "site_id": "gis_-22_95190_-43_21050_RioCorcovado",
+ "lat": -22.9519,
+ "lon": -43.2105,
+ "home_alt_m": 528.5723426075638,
+ "png": "_topdown.png",
+ "cached": false,
+ "map": {
+  "x_min": -80.0,
+  "x_max": 80.0,
+  "y_min": -300.0,
+  "y_max": 300.0
+ },
+ "extent_m": 900.0,
+ "generated_at": "2026-09-11 13:46:43"
+}
